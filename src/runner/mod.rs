@@ -50,12 +50,22 @@ where
         let samples = 100;
         let mut min_cycles = u64::MAX;
         let mut min_inst = u64::MAX;
+        let mut min_time_ns: Option<u64> = None;
 
         for _ in 0..samples {
             group.reset().unwrap();
             group.enable().unwrap();
 
+            #[cfg(feature = "real_time")]
+            let start_time = std::time::Instant::now();
+
             std::hint::black_box((self.function)(&self.input));
+
+            #[cfg(feature = "real_time")]
+            {
+                let elapsed = start_time.elapsed().as_nanos() as u64;
+                min_time_ns = Some(min_time_ns.unwrap_or(u64::MAX).min(elapsed));
+            }
 
             group.disable().unwrap();
             let counts = group.read().unwrap();
@@ -78,7 +88,6 @@ where
 
         std::hint::black_box((self.function)(&self.input));
 
-        // ▼ 追加: 実行後の Dealloc カウンターを取得
         let end_allocs = crate::ALLOC_COUNT.load(Ordering::SeqCst);
         let end_bytes = crate::ALLOC_BYTES.load(Ordering::SeqCst);
         let end_deallocs = crate::DEALLOC_COUNT.load(Ordering::SeqCst);
@@ -87,6 +96,7 @@ where
         Measurement::new(
             min_cycles,
             Some(min_inst),
+            min_time_ns, // ← 追加: 実時間
             end_allocs - start_allocs,
             end_bytes - start_bytes,
             end_deallocs - start_deallocs,
@@ -102,6 +112,7 @@ where
 
         let samples = 100;
         let mut min_cycles = u64::MAX;
+        let mut min_time_ns: Option<u64> = None;
 
         #[cfg(target_arch = "x86_64")]
         {
@@ -112,7 +123,16 @@ where
                     let start = _rdtsc();
                     _mm_lfence();
 
+                    #[cfg(feature = "real_time")]
+                    let start_time = std::time::Instant::now();
+
                     std::hint::black_box((self.function)(&self.input));
+
+                    #[cfg(feature = "real_time")]
+                    {
+                        let elapsed = start_time.elapsed().as_nanos() as u64;
+                        min_time_ns = Some(min_time_ns.unwrap_or(u64::MAX).min(elapsed));
+                    }
 
                     let mut aux: u32 = 0;
                     let end = __rdtscp(&mut aux);
@@ -132,8 +152,14 @@ where
                 let start = std::time::Instant::now();
                 std::hint::black_box((self.function)(&self.input));
                 let elapsed = start.elapsed().as_nanos() as u64;
+
+                // fallback 環境ではサイクル数の代わりに時間を代入
                 if elapsed < min_cycles {
                     min_cycles = elapsed;
+                }
+                #[cfg(feature = "real_time")]
+                {
+                    min_time_ns = Some(min_time_ns.unwrap_or(u64::MAX).min(elapsed));
                 }
             }
         }
@@ -153,6 +179,7 @@ where
         Measurement::new(
             min_cycles,
             None,
+            min_time_ns, // ← 追加: 実時間
             end_allocs - start_allocs,
             end_bytes - start_bytes,
             end_deallocs - start_deallocs,

@@ -8,3 +8,7 @@ kasane-logic = { path = "../kasane-logic" }
 serde_json = "1.0.149"
 chrono = "0.4.44"
 serde = { version = "1.0", features = ["derive"] }
+
+[features]
+default = []
+real_time = []

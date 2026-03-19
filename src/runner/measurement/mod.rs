@@ -21,6 +21,8 @@ pub struct Measurement {
     /// ※ Linux環境（`perf_event`）でのみ取得可能。他環境では `None` となります。
     pub instructions: Option<u64>,
 
+    pub time_ns: Option<u64>,
+
     /// OSに対してヒープメモリの確保（Alloc）を要求した回数。
     pub alloc_count: usize,
 
@@ -43,6 +45,7 @@ impl Measurement {
     pub fn new(
         cycles: u64,
         instructions: Option<u64>,
+        time_ns: Option<u64>, // ← 追加
         alloc_count: usize,
         alloc_bytes: usize,
         dealloc_count: usize,
@@ -51,6 +54,7 @@ impl Measurement {
         Self {
             cycles,
             instructions,
+            time_ns,
             alloc_count,
             alloc_bytes,
             dealloc_count,
