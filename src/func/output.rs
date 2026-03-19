@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 #[serde(rename_all = "camelCase")]
 pub struct BenchJsonReport<I> {
     pub pattern_type: String, // "instant" または "scaling"
-    pub description: Option<String>,
+    pub description: String,
     // 関数名をキーにして、その計測結果の配列を保持する
     pub results: BTreeMap<String, Vec<BenchJsonEntry<I>>>,
 }
@@ -37,7 +37,7 @@ pub struct FuncMetadata {
 #[serde(rename_all = "camelCase")]
 pub struct PatternMetadata {
     pub name: String,
-    pub description: Option<String>,
+    pub description: String,
     pub pattern_type: String,
 }
 

@@ -12,7 +12,7 @@ pub enum Bench<I> {
 /// 1つの計測シナリオ（パターン）
 pub struct BenchPattern<I> {
     pub name: String,
-    pub description: Option<String>,
+    pub description: String,
     pub input: Bench<I>,
 }
 
@@ -64,7 +64,7 @@ where
     pub fn add_bench(mut self, name: &str, description: &str, input: Bench<I>) -> Self {
         self.patterns.push(BenchPattern {
             name: name.to_string(),
-            description: Some(description.to_string()),
+            description: description.to_string(),
             input,
         });
         self
