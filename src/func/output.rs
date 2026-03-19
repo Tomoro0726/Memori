@@ -3,6 +3,7 @@ use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 // --- JSON出力用の構造体 ---
@@ -43,22 +44,19 @@ pub struct PatternMetadata {
 
 impl<I> Func<I>
 where
-    I: Clone + serde::Serialize + 'static,
+    I: Clone + serde::Serialize + std::fmt::Display + 'static, // 表示用に Display を追加
 {
     /// 全パターン×全関数を実行し、結果をJSONとして保存します
     pub fn run_and_save(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let base_path = PathBuf::from("target/tenbin").join(&self.name);
         fs::create_dir_all(&base_path)?;
 
-        // 1. main.json (メタデータ) の更新
         self.update_main_json(&base_path)?;
 
-        // 保存用の大枠: Key = パターン名 (例: "stress_test")
         let mut report_map: BTreeMap<String, BenchJsonReport<I>> = BTreeMap::new();
 
         println!("🚀 実行開始: {}", self.name);
 
-        // 2. パターン（シナリオ）ごとにループ
         for pattern in &self.patterns {
             println!(" ├─ パターン: {} ({:?})", pattern.name, pattern.description);
 
@@ -67,27 +65,36 @@ where
                 crate::Bench::Scaling(_) => "scaling",
             };
 
-            // このパターンに紐づく、各関数の結果を保持するマップ
             let mut pattern_results = BTreeMap::new();
 
-            // 3. 関数（ライバル）ごとにループ
             for (func_name, func) in &mut self.functions {
                 println!(" │   ├─ 関数: {}", func_name);
                 let mut data_entries = Vec::new();
 
-                // 4. 計測エンジンの実行
+                // 4. 計測エンジンの実行（標準出力で進捗を表示）
                 match &pattern.input {
                     crate::Bench::Instant(val) => {
-                        // Box内のクロージャに可変参照を渡す
+                        // 実行中の表示（flush で即時描画）
+                        print!("\r │   │   ⏳ 計測中: [1/1] N={:<10}", val);
+                        std::io::stdout().flush().unwrap();
+
                         let mut runner = crate::runner::Runner::new(val.clone(), &mut **func);
                         let m = runner.run();
                         data_entries.push(BenchJsonEntry {
                             input: val.clone(),
                             measurement: m,
                         });
+
+                        // 完了表示（上書きして改行）
+                        println!("\r │   │   ✅ 計測完了: [1/1] Input={:<10}", val);
                     }
                     crate::Bench::Scaling(vals) => {
-                        for val in vals {
+                        let total = vals.len();
+                        for (i, val) in vals.iter().enumerate() {
+                            // \r で行頭に戻り、現在状況を上書き表示
+                            print!("\r │   │   ⏳ 計測中: [{}/{}] N={:<10}", i + 1, total, val);
+                            std::io::stdout().flush().unwrap();
+
                             let mut runner = crate::runner::Runner::new(val.clone(), &mut **func);
                             let m = runner.run();
                             data_entries.push(BenchJsonEntry {
@@ -95,14 +102,14 @@ where
                                 measurement: m,
                             });
                         }
+                        // 全て完了したら行を上書きして改行（余分な文字を消すためにスペースで埋める）
+                        println!("\r │   │   ✅ 計測完了: [{}/{}] {:<15}", total, total, "");
                     }
                 }
 
-                // 取得したデータを関数名ごとに保存
                 pattern_results.insert(func_name.clone(), data_entries);
             }
 
-            // このパターンの全関数の結果をまとめる
             report_map.insert(
                 pattern.name.clone(),
                 BenchJsonReport {
@@ -113,7 +120,6 @@ where
             );
         }
 
-        // 5. 履歴ファイルの保存 (001_YYYY-MM-DD.json)
         let next_num = self.get_next_file_number(&base_path);
         let date_str = Local::now().format("%Y-%m-%d").to_string();
         let history_path = base_path.join(format!("{:03}_{}.json", next_num, date_str));
@@ -121,7 +127,7 @@ where
         let json_data = serde_json::to_string_pretty(&report_map)?;
         fs::write(history_path, json_data)?;
 
-        println!("✅ 保存完了: {} に出力されました。", self.name);
+        println!("✨ すべての計測が完了し、{} に保存されました。", self.name);
         Ok(())
     }
 
