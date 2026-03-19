@@ -1,4 +1,3 @@
-use crate::bench::BenchResult;
 use crate::{Func, Measurement};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
@@ -6,36 +5,17 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-// --- JSON出力用のデータ構造 ---
+// --- JSON出力用の構造体 ---
 
-/// main.json: その関数（フォルダ）の目次となるメタデータ
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct FuncMetadata {
-    pub name: String,
-    pub description: Option<String>,
-    pub benchmarks: Vec<BenchMetadata>,
-}
-
-/// main.json内で、各ベンチマークの定義を記録
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct BenchMetadata {
-    pub name: String,
-    pub description: Option<String>,
-    pub pattern: String,
-}
-
-/// 履歴JSON: 各計測実行時の具体的なデータ
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BenchJsonReport<I> {
-    pub pattern: String,
+    pub pattern_type: String, // "instant" または "scaling"
     pub description: Option<String>,
-    pub data: Vec<BenchJsonEntry<I>>,
+    // 関数名をキーにして、その計測結果の配列を保持する
+    pub results: BTreeMap<String, Vec<BenchJsonEntry<I>>>,
 }
 
-/// 履歴JSON: 個々の計測ポイント（入力値と結果のペア）
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BenchJsonEntry<I> {
@@ -43,67 +23,92 @@ pub struct BenchJsonEntry<I> {
     pub measurement: Measurement,
 }
 
-// --- Funcの実装改良 ---
+// 目次となる main.json 用
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FuncMetadata {
+    pub name: String,
+    pub description: Option<String>,
+    pub functions: Vec<String>,
+    pub patterns: Vec<PatternMetadata>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PatternMetadata {
+    pub name: String,
+    pub description: Option<String>,
+    pub pattern_type: String,
+}
 
 impl<I> Func<I>
 where
-    I: Clone + serde::Serialize,
+    I: Clone + serde::Serialize + 'static,
 {
-    /// ベンチマークを実行し、結果を履歴ファイルとメタデータ(main.json)に保存します。
+    /// 全パターン×全関数を実行し、結果をJSONとして保存します
     pub fn run_and_save(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // 1. フォルダの準備
         let base_path = PathBuf::from("target/tenbin").join(&self.name);
         fs::create_dir_all(&base_path)?;
 
-        // 2. メタデータの構築と main.json の更新
-        let current_benchmarks: Vec<BenchMetadata> = self
-            .benches
-            .iter()
-            .map(|b| BenchMetadata {
-                name: b.name().clone(),
-                description: b.description().cloned(),
-                pattern: match b.pattern() {
-                    crate::bench::BenchPattern::Instant => "instant".to_string(),
-                    crate::bench::BenchPattern::Scaling => "scaling".to_string(),
-                },
-            })
-            .collect();
+        // 1. main.json (メタデータ) の更新
+        self.update_main_json(&base_path)?;
 
-        self.update_main_json(&base_path, current_benchmarks)?;
+        // 保存用の大枠: Key = パターン名 (例: "stress_test")
+        let mut report_map: BTreeMap<String, BenchJsonReport<I>> = BTreeMap::new();
 
-        // 3. 全ベンチマークを実行
-        let raw_results = self.run_all();
+        println!("🚀 実行開始: {}", self.name);
 
-        // 4. 履歴用JSONデータの構築
-        let mut report_map = BTreeMap::new();
-        for (i, result) in raw_results.into_iter().enumerate() {
-            let bench_ref = &self.benches[i];
+        // 2. パターン（シナリオ）ごとにループ
+        for pattern in &self.patterns {
+            println!(" ├─ パターン: {} ({:?})", pattern.name, pattern.description);
 
-            let (pattern, items) = match result {
-                BenchResult::Instant((input, m)) => (
-                    "instant",
-                    vec![BenchJsonEntry {
-                        input,
-                        measurement: m,
-                    }],
-                ),
-                BenchResult::Scaling(list) => (
-                    "scaling",
-                    list.into_iter()
-                        .map(|(input, m)| BenchJsonEntry {
-                            input,
-                            measurement: m,
-                        })
-                        .collect(),
-                ),
+            let pattern_type = match &pattern.input {
+                crate::Bench::Instant(_) => "instant",
+                crate::Bench::Scaling(_) => "scaling",
             };
 
+            // このパターンに紐づく、各関数の結果を保持するマップ
+            let mut pattern_results = BTreeMap::new();
+
+            // 3. 関数（ライバル）ごとにループ
+            for (func_name, func) in &mut self.functions {
+                println!(" │   ├─ 関数: {}", func_name);
+                let mut data_entries = Vec::new();
+
+                // 4. 計測エンジンの実行
+                match &pattern.input {
+                    crate::Bench::Instant(val) => {
+                        // Box内のクロージャに可変参照を渡す
+                        let mut runner = crate::runner::Runner::new(val.clone(), &mut **func);
+                        let m = runner.run();
+                        data_entries.push(BenchJsonEntry {
+                            input: val.clone(),
+                            measurement: m,
+                        });
+                    }
+                    crate::Bench::Scaling(vals) => {
+                        for val in vals {
+                            let mut runner = crate::runner::Runner::new(val.clone(), &mut **func);
+                            let m = runner.run();
+                            data_entries.push(BenchJsonEntry {
+                                input: val.clone(),
+                                measurement: m,
+                            });
+                        }
+                    }
+                }
+
+                // 取得したデータを関数名ごとに保存
+                pattern_results.insert(func_name.clone(), data_entries);
+            }
+
+            // このパターンの全関数の結果をまとめる
             report_map.insert(
-                bench_ref.name().clone(),
+                pattern.name.clone(),
                 BenchJsonReport {
-                    pattern: pattern.to_string(),
-                    description: bench_ref.description().cloned(), // 履歴にも説明を載せる
-                    data: items,
+                    pattern_type: pattern_type.to_string(),
+                    description: pattern.description.clone(),
+                    results: pattern_results,
                 },
             );
         }
@@ -116,27 +121,39 @@ where
         let json_data = serde_json::to_string_pretty(&report_map)?;
         fs::write(history_path, json_data)?;
 
+        println!("✅ 保存完了: {} に出力されました。", self.name);
         Ok(())
     }
 
-    /// メタデータを比較し、変更がある場合のみ main.json を更新します。
-    fn update_main_json(
-        &self,
-        path: &Path,
-        benchmarks: Vec<BenchMetadata>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    /// メタデータを最新化する
+    fn update_main_json(&self, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         let main_path = path.join("main.json");
         let current_meta = FuncMetadata {
             name: self.name.clone(),
             description: self.description.clone(),
-            benchmarks,
+            functions: self
+                .functions
+                .iter()
+                .map(|(name, _)| name.clone())
+                .collect(),
+            patterns: self
+                .patterns
+                .iter()
+                .map(|p| PatternMetadata {
+                    name: p.name.clone(),
+                    description: p.description.clone(),
+                    pattern_type: match p.input {
+                        crate::Bench::Instant(_) => "instant".to_string(),
+                        crate::Bench::Scaling(_) => "scaling".to_string(),
+                    },
+                })
+                .collect(),
         };
 
         let should_write = if main_path.exists() {
             let content = fs::read_to_string(&main_path)?;
-            if let Ok(existing_meta) = serde_json::from_str::<FuncMetadata>(&content) {
-                // 名前、説明、またはベンチマーク構成が変わっていれば更新
-                existing_meta != current_meta
+            if let Ok(existing) = serde_json::from_str::<FuncMetadata>(&content) {
+                existing != current_meta
             } else {
                 true
             }
@@ -145,13 +162,11 @@ where
         };
 
         if should_write {
-            let json = serde_json::to_string_pretty(&current_meta)?;
-            fs::write(main_path, json)?;
+            fs::write(main_path, serde_json::to_string_pretty(&current_meta)?)?;
         }
         Ok(())
     }
 
-    /// フォルダをスキャンして次の連番を取得
     fn get_next_file_number(&self, path: &Path) -> u32 {
         fs::read_dir(path)
             .map(|dir| {

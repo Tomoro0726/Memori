@@ -1,37 +1,29 @@
-use tenbin::{Func, InstantBench, ScalingBench};
+use tenbin::{Bench, Func};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. 計測したいターゲット関数（クロージャ）を定義
-    // 計算だけでなく、Vecへの格納（Memory Alloc）が発生する処理です。
-    let prime_finder = |n: &usize| {
-        let n = *n;
-        let mut primes = Vec::new();
-        for i in 2..n {
-            if (2..((i as f64).sqrt() as usize + 1)).all(|d| i % d != 0) {
-                primes.push(i);
+fn main() {
+    Func::new("Set_Performance")
+        .with_description("HashSetとBTreeSetの性能比較")
+        // 【選手登録】計測したい関数をいくつでも追加
+        .add_function("HashSet", |n| {
+            let mut s = std::collections::HashSet::new();
+            for i in 0..*n {
+                s.insert(i);
             }
-        }
-        primes // 戻り値 R
-    };
-
-    // 2. Func構造体を生成（関数ごとの管理単位）
-    let func_bench = Func::new("prime_calculation_v1")
-        .with_description("エラトステネスの篩を使わない素朴な素数判定の計測");
-
-    // 3. 【Instant】代表値のベンチマークを追加
-    // 「とりあえず1000の時はどうなの？」を測る
-    let func_bench = func_bench.add_bench(InstantBench::new("baseline_1000", 1000, prime_finder));
-
-    let scale = ScalingBench::new("growth_analysis", vec![10, 100, 1000, 5000], prime_finder);
-
-    // 4. 【Scaling】スケーリングのベンチマークを追加
-    // 入力が増えた時の「耐性」を測る
-    let mut func_bench = func_bench.add_bench(scale);
-
-    // 5. 実行してJSONに保存！
-    // 内部で run_all() が呼ばれ、target/tenbin/prime_calculation_v1/ に保存されます。
-    func_bench.run_and_save()?;
-
-    println!("✅ 計測完了！ JSONレポートが生成されました。");
-    Ok(())
+        })
+        .add_function("BTreeSet", |n| {
+            let mut s = std::collections::BTreeSet::new();
+            for i in 0..*n {
+                s.insert(i);
+            }
+        })
+        // 【競技登録】代表値（1点）とスケーリング（複数点）を組み合わせ自由で追加
+        .add_bench("baseline", "標準的な負荷", Bench::Instant(1000))
+        .add_bench(
+            "stress_test",
+            "負荷増大時の推移",
+            Bench::Scaling(vec![10, 100, 1000, 5000]),
+        )
+        // 実行！
+        .run_and_save()
+        .unwrap();
 }

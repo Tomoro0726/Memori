@@ -121,7 +121,6 @@ name = "kasane-logic"
 version = "0.1.3"
 dependencies = [
  "roaring",
- "serde_json",
 ]
 
 [[package]]
