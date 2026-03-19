@@ -46,7 +46,6 @@ export interface ParsedFunctionData {
 
 export type BenchmarkDataMap = Record<string, ParsedFunctionData>;
 
-// --- グラフ描画用の線の情報 ---
 export interface LineInfo {
   key: string; // Recharts用のユニークキー (例: "HashSet (Latest)")
   algoName: string; // アルゴリズム名 (例: "HashSet")

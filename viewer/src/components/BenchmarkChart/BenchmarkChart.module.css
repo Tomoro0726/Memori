@@ -86,8 +86,6 @@
   font-size: 0.75rem;
   color: #9ca3af;
 }
-
-/* カラーピッカー周りの微調整 */
 .colorPickerGroup {
   display: flex;
   flex-wrap: wrap;

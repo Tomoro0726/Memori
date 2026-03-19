@@ -20,6 +20,8 @@ interface ChartProps {
   data: any[];
   lines: LineInfo[];
   yAxisLabel: string;
+  xAxisKey: string;
+  xAxisLabel: string;
 }
 
 export const BenchmarkChart: React.FC<ChartProps> = ({
@@ -28,17 +30,15 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
   data,
   lines,
   yAxisLabel,
+  xAxisKey,
+  xAxisLabel,
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(400);
 
-  // アルゴリズム名のユニークなリストを取得
   const algoNames = Array.from(new Set(lines.map((l) => l.algoName)));
-
-  // アルゴリズム名ごとに色を管理
   const [algoColors, setAlgoColors] = useState<Record<string, string>>({});
 
-  // アルゴリズムが切り替わった時に色を初期設定
   useEffect(() => {
     setAlgoColors((prev) => {
       const newColors = { ...prev };
@@ -55,10 +55,8 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
     setAlgoColors((prev) => ({ ...prev, [algoName]: color }));
   };
 
-  // 時系列の深さの最大値を計算（0=最新のみ, 1=1つ前まで...）
   const maxRunIndex = Math.max(0, ...lines.map((l) => l.runIndex));
 
-  // 最新は不透明度 1.0、過去になるにつれて最小 0.2 まで薄くする
   const getOpacity = (runIndex: number) => {
     if (maxRunIndex === 0) return 1;
     return 1 - (runIndex / maxRunIndex) * 0.8;
@@ -82,11 +80,11 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
 
   const downloadCSV = () => {
     if (data.length === 0) return;
-    // CSVヘッダーは lines[].key を使用
-    const headers = ["input", ...lines.map((l) => l.key)].join(",");
+    const headers = [xAxisKey, ...lines.map((l) => l.key)].join(",");
     const rows = data.map(
       (row) =>
-        `${row.input},` + lines.map((line) => row[line.key] ?? "").join(","),
+        `${row[xAxisKey]},` +
+        lines.map((line) => row[line.key] ?? "").join(","),
     );
     const csvContent =
       "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
@@ -133,14 +131,17 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
             margin={{ top: 10, right: 30, left: 60, bottom: 20 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+
             <XAxis
-              dataKey="input"
+              dataKey={xAxisKey}
               label={{
-                value: "N (Input Size)",
+                value: xAxisLabel,
                 position: "insideBottomRight",
                 offset: -10,
               }}
+              padding={{ left: 20, right: 20 }}
             />
+
             <YAxis
               label={{
                 value: yAxisLabel,
@@ -150,6 +151,7 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
                 offset: -10,
               }}
             />
+
             <Tooltip
               formatter={(
                 value:
@@ -166,16 +168,15 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
             />
             <Legend wrapperStyle={{ paddingTop: "20px" }} />
 
-            {/* 線を描画（アルゴリズムごとの色 ＋ 時系列の不透明度） */}
             {lines.map((line) => (
               <Line
                 key={line.key}
                 type="monotone"
                 dataKey={line.key}
                 stroke={algoColors[line.algoName] || "#000"}
-                strokeWidth={line.runIndex === 0 ? 3 : 2} // 最新の線は少し太くする
+                strokeWidth={line.runIndex === 0 ? 3 : 2}
                 strokeOpacity={getOpacity(line.runIndex)}
-                dot={{ r: line.runIndex === 0 ? 4 : 2 }} // 過去の点は少し小さくする
+                dot={{ r: line.runIndex === 0 ? 4 : 2 }}
                 activeDot={{ r: 6 }}
               />
             ))}
@@ -198,10 +199,9 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
           <span className={styles.rangeValue}>{height}px</span>
         </div>
 
-        {/* カラーピッカー（アルゴリズム単位で設定） */}
         <div className={styles.colorPickerGroup}>
           <span className={styles.label}>
-            <Settings size={14} /> Colors (by Algorithm):
+            <Settings size={14} /> Colors:
           </span>
           {algoNames.map((algoName) => (
             <div key={algoName} className={styles.colorItem}>
