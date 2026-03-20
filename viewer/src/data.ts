@@ -1,4 +1,4 @@
-import type { BenchmarkDataMap, FuncMetadata, BenchJsonReport } from "./types";
+import type { BenchJsonReport, BenchmarkDataMap, FuncMetadata } from "./types";
 
 // 本番環境でRustから注入されるグローバル変数の型定義
 declare global {
@@ -12,10 +12,7 @@ export function loadBenchmarkData(): BenchmarkDataMap {
   // Rustの `run_and_save` によって HTML の <script> タグに注入されたデータを読み取る
   if (import.meta.env.PROD) {
     try {
-      if (
-        window.__TENBIN_DATA__ &&
-        typeof window.__TENBIN_DATA__ === "object"
-      ) {
+      if (window.__TENBIN_DATA__ && typeof window.__TENBIN_DATA__ === "object") {
         // グローバル変数から直接データを取得
         const data = window.__TENBIN_DATA__ as BenchmarkDataMap;
 
@@ -74,9 +71,7 @@ export function loadBenchmarkData(): BenchmarkDataMap {
 
   // UI表示用に、ファイル名（001_, 002_...）の降順（最新が先頭）でソート
   for (const funcName in parsedData) {
-    parsedData[funcName].history.sort((a, b) =>
-      b.fileName.localeCompare(a.fileName),
-    );
+    parsedData[funcName].history.sort((a, b) => b.fileName.localeCompare(a.fileName));
   }
 
   return parsedData;

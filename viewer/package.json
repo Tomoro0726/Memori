@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "format": "biome format --write .",
+    "check": "biome check --write .",
+    "typecheck": "tsc -b --noEmit",
+    "ci": "bun run format && bun run check && bun run typecheck",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -18,7 +21,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
-    "@eslint/js": "^9.39.4",
+    "@biomejs/biome": "^1.9.3",
     "@rolldown/plugin-babel": "^0.2.0",
     "@types/babel__core": "^7.20.5",
     "@types/node": "^24.12.0",
@@ -26,13 +29,17 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.0",
     "babel-plugin-react-compiler": "^1.0.0",
-    "eslint": "^9.39.4",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.11",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.56.1",
     "vite": "^8.0.0",
     "vite-plugin-singlefile": "^2.3.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json}": "biome format --write",
+    "*.{ts,tsx}": [
+      "biome check --apply",
+      "tsc --noEmit"
+    ]
   }
 }

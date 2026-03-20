@@ -1,0 +1,13 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# フォーマット
+bun run format
+
+# リント・複雑度チェック
+bun run check
+
+# 型チェック
+bun run typecheck
+
+# 上記のコマンドがすべて成功した場合のみコミットが進む
