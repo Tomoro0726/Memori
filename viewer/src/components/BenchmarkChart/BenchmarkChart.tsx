@@ -83,7 +83,8 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
     if (data.length === 0) return;
     const headers = [xAxisKey, ...lines.map((l) => l.key)].join(",");
     const rows = data.map(
-      (row) => `${String(row[xAxisKey])},${lines.map((line) => row[line.key] ?? "").join(",")}`
+      (row) =>
+        `${String(row[xAxisKey])},${lines.map((line) => row[line.key] ?? "").join(",")}`,
     );
     const csvContent = `data:text/csv;charset=utf-8,${[headers, ...rows].join("\n")}`;
     const encodedUri = encodeURI(csvContent);
@@ -103,7 +104,11 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
           {description && <p className={styles.description}>{description}</p>}
         </div>
         <div className={styles.actions}>
-          <button type="button" onClick={downloadCSV} className={`${styles.btn} ${styles.btnCsv}`}>
+          <button
+            type="button"
+            onClick={downloadCSV}
+            className={`${styles.btn} ${styles.btnCsv}`}
+          >
             <FileSpreadsheet size={16} /> CSV
           </button>
           <button
@@ -116,9 +121,16 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
         </div>
       </div>
 
-      <div ref={chartRef} className={styles.chartArea} style={{ height: `${height}px` }}>
+      <div
+        ref={chartRef}
+        className={styles.chartArea}
+        style={{ height: `${height}px` }}
+      >
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 10, right: 30, left: 60, bottom: 20 }}>
+          <LineChart
+            data={data}
+            margin={{ top: 10, right: 30, left: 60, bottom: 20 }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
 
             <XAxis
@@ -142,8 +154,15 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
             />
 
             <Tooltip
-              formatter={(value: number | string | readonly (number | string)[] | undefined) => {
-                if (typeof value === "number") return new Intl.NumberFormat().format(value);
+              formatter={(
+                value:
+                  | number
+                  | string
+                  | readonly (number | string)[]
+                  | undefined,
+              ) => {
+                if (typeof value === "number")
+                  return new Intl.NumberFormat().format(value);
                 if (Array.isArray(value)) return value.join(", ");
                 return value ?? "";
               }}
@@ -190,7 +209,9 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
               <input
                 type="color"
                 value={algoColors[algoName] || "#000000"}
-                onChange={(e) => handleAlgoColorChange(algoName, e.target.value)}
+                onChange={(e) =>
+                  handleAlgoColorChange(algoName, e.target.value)
+                }
                 className={styles.colorInput}
               />
               <span className={styles.colorName} title={algoName}>
