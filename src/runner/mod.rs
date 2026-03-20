@@ -195,14 +195,7 @@ where
                 min_cycles = min_cycles.min(end_cycles - start_cycles);
             }
 
-            #[cfg(not(target_arch = "x86_64"))]
-            {
-                let start_time = std::time::Instant::now();
-                std::hint::black_box((self.function)(&self.input));
-                let elapsed = start_time.elapsed().as_nanos() as u64;
-
-                min_time_ns = Some(min_time_ns.map_or(elapsed, |prev| prev.min(elapsed)));
-            }
+            // Removed redundant double execution for non-x86_64
         }
 
         let start_allocs = crate::ALLOC_COUNT.load(Ordering::SeqCst);
