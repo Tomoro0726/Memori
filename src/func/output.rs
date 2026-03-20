@@ -416,11 +416,11 @@ where
         println!("Output report.html");
         if let Ok(cwd) = std::env::current_dir() {
             let abs_report = cwd.join(&memori_root).join("report.html");
-            let abs_manifest = cwd.join(&memori_root).join("report-manifest.json");
+            // let abs_manifest = cwd.join(&memori_root).join("report-manifest.json");
 
             // Windows環境でもブラウザで開きやすいように \ を / に置換
             let report_url = abs_report.to_string_lossy().replace('\\', "/");
-            let manifest_url = abs_manifest.to_string_lossy().replace('\\', "/");
+            // let manifest_url = abs_manifest.to_string_lossy().replace('\\', "/");
 
             #[cfg(target_os = "windows")]
             {
