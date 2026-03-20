@@ -197,10 +197,11 @@ where
 
             #[cfg(not(target_arch = "x86_64"))]
             {
-                #[cfg(not(feature = "real_time"))]
                 let start_time = std::time::Instant::now();
+                std::hint::black_box((self.function)(&self.input));
                 let elapsed = start_time.elapsed().as_nanos() as u64;
-                min_cycles = min_cycles.min(elapsed);
+
+                min_time_ns = Some(min_time_ns.map_or(elapsed, |prev| prev.min(elapsed)));
             }
         }
 
