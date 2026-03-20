@@ -46,7 +46,8 @@ where
         use perf_event::{Builder, events::Hardware};
 
         for _ in 0..100 {
-            std::hint::black_box((self.function)(&self.input));
+            let input = std::hint::black_box(&self.input);
+            let _ = std::hint::black_box((self.function)(input));
         }
 
         // Use independent counters to avoid data size mismatch panics in VM environments.
@@ -89,7 +90,20 @@ where
             #[cfg(feature = "real_time")]
             let start_time = std::time::Instant::now();
 
-            std::hint::black_box((self.function)(&self.input));
+            // メモリ計測: サンプリングループ内でTLS値を取得
+            let (s_alloc, s_bytes) = crate::allocator::THREAD_ALLOC_COUNT.with(|c| c.get());
+            let (s_dealloc, s_dealloc_bytes) =
+                crate::allocator::THREAD_DEALLOC_COUNT.with(|c| c.get());
+            let input = std::hint::black_box(&self.input);
+            let _ = std::hint::black_box((self.function)(input));
+            let (e_alloc, e_bytes) = crate::allocator::THREAD_ALLOC_COUNT.with(|c| c.get());
+            let (e_dealloc, e_dealloc_bytes) =
+                crate::allocator::THREAD_DEALLOC_COUNT.with(|c| c.get());
+
+            let alloc_count = e_alloc.wrapping_sub(s_alloc);
+            let alloc_bytes = e_bytes.wrapping_sub(s_bytes);
+            let dealloc_count = e_dealloc.wrapping_sub(s_dealloc);
+            let dealloc_bytes = e_dealloc_bytes.wrapping_sub(s_dealloc_bytes);
 
             #[cfg(feature = "real_time")]
             {
@@ -101,8 +115,8 @@ where
             {
                 let mut aux = 0;
                 let end_rdtsc = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
-                unsafe { core::arch::x86_64::_mm_lfence() };
-                min_rdtsc_cycles = min_rdtsc_cycles.min(end_rdtsc - start_rdtsc);
+                core::arch::x86_64::_mm_lfence();
+                min_rdtsc_cycles = min_rdtsc_cycles.min(end_rdtsc.wrapping_sub(start_rdtsc));
             }
 
             if let Some(i) = inst_counter.as_mut() {
@@ -117,6 +131,7 @@ where
                     min_perf_cycles = min_perf_cycles.min(count);
                 }
             }
+            // ...existing code...
         }
 
         let start_allocs = crate::ALLOC_COUNT.load(Ordering::SeqCst);
@@ -150,10 +165,10 @@ where
             min_time_ns.or(Some(0)),
             #[cfg(not(feature = "real_time"))]
             None,
-            end_allocs - start_allocs,
-            end_bytes - start_bytes,
-            end_deallocs - start_deallocs,
-            end_dealloc_bytes - start_dealloc_bytes,
+            alloc_count as isize,
+            alloc_bytes as isize,
+            dealloc_count as isize,
+            dealloc_bytes as isize,
         )
     }
 

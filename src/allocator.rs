@@ -1,23 +1,28 @@
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
 
-pub static ALLOC_COUNT: AtomicUsize = AtomicUsize::new(0);
-pub static ALLOC_BYTES: AtomicUsize = AtomicUsize::new(0);
-pub static DEALLOC_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-pub static DEALLOC_BYTES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+thread_local! {
+    pub static THREAD_ALLOC_COUNT: Cell<usize> = Cell::new(0);
+    pub static THREAD_ALLOC_BYTES: Cell<usize> = Cell::new(0);
+    pub static THREAD_DEALLOC_COUNT: Cell<usize> = Cell::new(0);
+    pub static THREAD_DEALLOC_BYTES: Cell<usize> = Cell::new(0);
+}
 
 pub struct TrackingAllocator;
 
 unsafe impl GlobalAlloc for TrackingAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        ALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
-        ALLOC_BYTES.fetch_add(layout.size(), Ordering::SeqCst);
+        let size = layout.size();
+        THREAD_ALLOC_COUNT.with(|c| c.set(c.get() + 1));
+        THREAD_ALLOC_BYTES.with(|c| c.set(c.get() + size));
         unsafe { System.alloc(layout) }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        DEALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
-        DEALLOC_BYTES.fetch_add(layout.size(), Ordering::SeqCst);
+        let size = layout.size();
+        THREAD_DEALLOC_COUNT.with(|c| c.set(c.get() + 1));
+        THREAD_DEALLOC_BYTES.with(|c| c.set(c.get() + size));
         unsafe { System.dealloc(ptr, layout) }
     }
 }
