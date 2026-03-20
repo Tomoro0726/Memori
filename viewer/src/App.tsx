@@ -10,7 +10,7 @@ import { BenchmarkChart } from "./components/Chart";
 import { FilterHeader } from "./components/Controls";
 import { useChartData, useChartFilters, useIsInstantPattern } from "./hooks";
 import type { BenchmarkDataMap, MetricKey } from "./types";
-import { loadBenchmarkData } from "./utils/dataLoader";
+import { loadBenchmarkData, loadBenchmarkDataFromFileList } from "./utils/dataLoader";
 
 /** メトリック表示ラベルマップ */
 const METRICS: Array<{ key: MetricKey; label: string }> = [
@@ -20,6 +20,24 @@ const METRICS: Array<{ key: MetricKey; label: string }> = [
   { key: "allocBytes", label: "Allocated Memory (Bytes)" },
 ];
 
+function getLoadFailureState(): {
+  needsLocalFolderSelection: boolean;
+  message: string;
+} {
+  const isFileProtocol = window.location.protocol === "file:";
+  if (isFileProtocol) {
+    return {
+      needsLocalFolderSelection: true,
+      message: "file:// では自動ロードできません。target/tenbin フォルダを選択してください。",
+    };
+  }
+
+  return {
+    needsLocalFolderSelection: false,
+    message: "Failed to load benchmark data.",
+  };
+}
+
 /**
  * Appコンポーネント
  * ベンチマークデータをロードし、フィルターと グラフ表示を統合
@@ -28,9 +46,22 @@ export default function App() {
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkDataMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [needsLocalFolderSelection, setNeedsLocalFolderSelection] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    const ifActive = (fn: () => void) => {
+      if (!cancelled) {
+        fn();
+      }
+    };
+
+    const handleLoadError = (err: unknown) => {
+      console.error("Failed to load benchmark data:", err);
+      const failure = getLoadFailureState();
+      setNeedsLocalFolderSelection(failure.needsLocalFolderSelection);
+      setLoadError(failure.message);
+    };
 
     const load = async () => {
       setIsLoading(true);
@@ -38,18 +69,11 @@ export default function App() {
 
       try {
         const data = await loadBenchmarkData();
-        if (!cancelled) {
-          setBenchmarkData(data);
-        }
+        ifActive(() => setBenchmarkData(data));
       } catch (err) {
-        if (!cancelled) {
-          console.error("Failed to load benchmark data:", err);
-          setLoadError("Failed to load benchmark data.");
-        }
+        ifActive(() => handleLoadError(err));
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        ifActive(() => setIsLoading(false));
       }
     };
 
@@ -59,6 +83,27 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  const handleFolderSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const data = await loadBenchmarkDataFromFileList(files);
+      setBenchmarkData(data);
+      setNeedsLocalFolderSelection(false);
+    } catch (err) {
+      console.error("Failed to load local benchmark data:", err);
+      setLoadError("フォルダ内JSONの読み込みに失敗しました。target/tenbin を選択してください。");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const functions = Object.keys(benchmarkData);
 
@@ -81,6 +126,26 @@ export default function App() {
   }
 
   if (loadError) {
+    if (needsLocalFolderSelection) {
+      return (
+        <div className={styles.page}>
+          <div className={styles.localLoadPanel}>
+            <h2 className={styles.localLoadTitle}>Local Folder Selection Required</h2>
+            <p className={styles.localLoadText}>{loadError}</p>
+            <p className={styles.localLoadText}>フォルダは target/tenbin を選択してください。</p>
+            <input
+              className={styles.localLoadInput}
+              type="file"
+              multiple
+              // @ts-expect-error webkitdirectory is non-standard but supported by Chromium
+              webkitdirectory=""
+              onChange={handleFolderSelection}
+            />
+          </div>
+        </div>
+      );
+    }
+
     return <div className={styles.page}>{loadError}</div>;
   }
 

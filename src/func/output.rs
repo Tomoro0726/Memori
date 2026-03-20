@@ -1,5 +1,4 @@
 use crate::{Func, Measurement};
-use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
@@ -84,7 +83,7 @@ struct ReportManifest {
 struct FunctionDataManifest {
     name: String,
     main_json_path: String,
-    history_json_paths: Vec<String>,
+    max_history_number: u32,
 }
 
 impl<I> Func<I>
@@ -113,13 +112,12 @@ where
 
         // 1. 履歴JSONの保存
         let next_num = self.get_next_file_number(&base_path);
-        let date_str = Local::now().format("%Y-%m-%d").to_string();
-        let history_path = base_path.join(format!("{:03}_{}.json", next_num, date_str));
+        let history_path = base_path.join(format!("{:03}.json", next_num));
 
         let json_data = serde_json::to_string_pretty(&report_map)?;
         fs::write(history_path, json_data)?;
 
-        println!("✨ すべての計測が完了し、{} に保存されました。", self.name);
+        println!("すべての計測が完了し、{} に保存されました。", self.name);
 
         // 2. マスター report.html を生成（target/tenbin 直下）
         Self::generate_master_report()?;
@@ -139,12 +137,12 @@ where
         let mut report_map = BTreeMap::new();
 
         if show_progress {
-            println!("🚀 実行開始: {}", self.name);
+            println!("Start: {}", self.name);
         }
 
         for pattern in &self.patterns {
             if show_progress {
-                println!(" ├─ パターン: {} ({:?})", pattern.name, pattern.description);
+                println!(" ├─ Bench: {} ({:?})", pattern.name, pattern.description);
             }
 
             let pattern_type = match &pattern.input {
@@ -156,14 +154,14 @@ where
 
             for (func_name, func) in &mut self.functions {
                 if show_progress {
-                    println!(" │   ├─ 関数: {}", func_name);
+                    println!(" │   ├─ Func: {}", func_name);
                 }
                 let mut data_entries = Vec::new();
 
                 match &pattern.input {
                     crate::Bench::Instant(val) => {
                         if show_progress {
-                            print!("\r │   │   ⏳ 計測中: [1/1] N={:<10}", val);
+                            print!("\r │   │   Progress: [1/1] N={:<10}", val);
                             std::io::stdout().flush().unwrap();
                         }
 
@@ -175,14 +173,14 @@ where
                         });
 
                         if show_progress {
-                            println!("\r │   │   ✅ 計測完了: [1/1] Input={:<10}", val);
+                            println!("\r │   │   OK: [1/1] Input={:<10}", val);
                         }
                     }
                     crate::Bench::Scaling(vals) => {
                         let total = vals.len();
                         for (i, val) in vals.iter().enumerate() {
                             if show_progress {
-                                print!("\r │   │   ⏳ 計測中: [{}/{}] N={:<10}", i + 1, total, val);
+                                print!("\r │   │   Progress: [{}/{}] N={:<10}", i + 1, total, val);
                                 std::io::stdout().flush().unwrap();
                             }
 
@@ -194,7 +192,7 @@ where
                             });
                         }
                         if show_progress {
-                            println!("\r │   │   ✅ 計測完了: [{}/{}] {:<15}", total, total, "");
+                            println!("\r │   │   OK: [{}/{}] {:<15}", total, total, "");
                         }
                     }
                 }
@@ -274,12 +272,13 @@ where
             .map(|dir| {
                 dir.flatten()
                     .filter_map(|e| {
-                        e.file_name()
-                            .to_str()?
-                            .split('_')
-                            .next()?
-                            .parse::<u32>()
-                            .ok()
+                        let name = e.file_name();
+                        let name = name.to_str()?;
+
+                        // Support both legacy `001_YYYY-MM-DD.json` and current `001.json`.
+                        let base = name.trim_end_matches(".json");
+                        let prefix = base.split('_').next()?;
+                        prefix.parse::<u32>().ok()
                     })
                     .max()
                     .unwrap_or(0)
@@ -309,6 +308,7 @@ where
 
         let html_template = include_str!("../../viewer/dist/index.html");
         let mut function_manifests = Vec::new();
+        let mut embedded_data = BTreeMap::new();
 
         // target/tenbin 直下のすべてのディレクトリを走査
         if let Ok(entries) = fs::read_dir(&tenbin_root) {
@@ -324,7 +324,16 @@ where
                 };
 
                 let main_json_path = path.join("main.json");
-                let mut history_paths = Vec::new();
+                let mut max_history_number = 0u32;
+                let mut history_list = Vec::new();
+                let meta = if main_json_path.exists() {
+                    match fs::read_to_string(&main_json_path) {
+                        Ok(content) => serde_json::from_str::<FuncMetadata>(&content).ok(),
+                        Err(_) => None,
+                    }
+                } else {
+                    None
+                };
 
                 // 該当ディレクトリ内のすべてのJSONファイルを読み込む
                 if let Ok(files) = fs::read_dir(&path) {
@@ -342,24 +351,47 @@ where
                             continue;
                         }
 
-                        history_paths.push(file_name);
+                        let prefix = file_name
+                            .trim_end_matches(".json")
+                            .split('_')
+                            .next()
+                            .unwrap_or("");
+                        if let Ok(num) = prefix.parse::<u32>() {
+                            if num > max_history_number {
+                                max_history_number = num;
+                            }
+
+                            if let Ok(content) = fs::read_to_string(entry.path()) {
+                                if let Ok(parsed) =
+                                    serde_json::from_str::<serde_json::Value>(&content)
+                                {
+                                    history_list.push(serde_json::json!({
+                                        "fileName": file_name,
+                                        "data": parsed
+                                    }));
+                                }
+                            }
+                        }
                     }
                 }
 
-                if !main_json_path.exists() && history_paths.is_empty() {
+                if !main_json_path.exists() && max_history_number == 0 {
                     continue;
                 }
-
-                let history_json_paths = history_paths
-                    .into_iter()
-                    .map(|file_name| format!("{}/{}", func_name, file_name))
-                    .collect();
 
                 function_manifests.push(FunctionDataManifest {
                     name: func_name.clone(),
                     main_json_path: format!("{}/main.json", func_name),
-                    history_json_paths,
+                    max_history_number,
                 });
+
+                embedded_data.insert(
+                    func_name,
+                    serde_json::json!({
+                        "meta": meta,
+                        "history": history_list
+                    }),
+                );
             }
         }
 
@@ -369,7 +401,15 @@ where
             functions: function_manifests,
         };
 
-        fs::write(tenbin_root.join("report.html"), html_template)?;
+        let injected_json = serde_json::to_string(&embedded_data)?;
+        let safe_json = injected_json.replace("</", "<\\/");
+        let injection_script = format!(
+            "<script>window.__TENBIN_DATA__ = {};</script>\n</head>",
+            safe_json
+        );
+        let final_html = html_template.replace("</head>", &injection_script);
+
+        fs::write(tenbin_root.join("report.html"), final_html)?;
         fs::write(
             tenbin_root.join("report-manifest.json"),
             serde_json::to_string_pretty(&manifest)?,
