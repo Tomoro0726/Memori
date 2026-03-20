@@ -48,5 +48,6 @@ jobs:
           github_token: ${{ github.token }}
           publish_dir: ./target/memori
           publish_branch: ${{ inputs.pages_branch }}
+          destination_dir: Memori
           keep_files: false
           commit_message: "update benchmark report [skip ci]"
