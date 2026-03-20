@@ -18,7 +18,7 @@ export function useChartFilters(initialFunctions: string[], benchmarkData: Bench
     selectedFunc: initialFunctions[0] || "",
     selectedPattern: "",
     selectedMetric: "cycles",
-    historyCount: 1,
+    selectedRuns: [0],
   });
 
   // 非同期ロード後に関数一覧が揃った場合、選択状態を補正する
@@ -57,7 +57,22 @@ export function useChartFilters(initialFunctions: string[], benchmarkData: Bench
       setFilters((prev) => ({ ...prev, selectedPattern: pattern })),
     setSelectedMetric: (metric: MetricKey) =>
       setFilters((prev) => ({ ...prev, selectedMetric: metric })),
-    setHistoryCount: (count: number) => setFilters((prev) => ({ ...prev, historyCount: count })),
+    toggleSelectedRun: (runIndex: number) =>
+      setFilters((prev) => {
+        const exists = prev.selectedRuns.includes(runIndex);
+        if (exists) {
+          const next = prev.selectedRuns.filter((i) => i !== runIndex);
+          return {
+            ...prev,
+            selectedRuns: next.length > 0 ? next : [0],
+          };
+        }
+
+        return {
+          ...prev,
+          selectedRuns: [...prev.selectedRuns, runIndex].sort((a, b) => a - b),
+        };
+      }),
   };
 }
 

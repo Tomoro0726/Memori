@@ -14,6 +14,28 @@ import { ChartCanvas } from "./ChartCanvas";
 import { ChartControls } from "./ChartControls";
 import { ChartExport } from "./ChartExport";
 
+const DEFAULT_ALGO_COLORS = [
+  "#2563eb",
+  "#f97316",
+  "#16a34a",
+  "#dc2626",
+  "#7c3aed",
+  "#0ea5e9",
+  "#d97706",
+  "#059669",
+  "#db2777",
+  "#4f46e5",
+];
+
+const getDefaultAlgoColor = (index: number): string => {
+  if (index < DEFAULT_ALGO_COLORS.length) {
+    return DEFAULT_ALGO_COLORS[index];
+  }
+
+  // Fallback for many lines: maintain contrast with a hue wheel.
+  return `hsl(${(index * 137.5) % 360}, 68%, 45%)`;
+};
+
 interface BenchmarkChartProps {
   /** グラフのタイトル */
   title: string;
@@ -59,7 +81,7 @@ export const BenchmarkChart: React.FC<BenchmarkChartProps> = ({
       const newColors = { ...prev };
       for (const [i, name] of algoNames.entries()) {
         if (!newColors[name]) {
-          newColors[name] = `hsl(${(i * 137.5) % 360}, 70%, 50%)`;
+          newColors[name] = getDefaultAlgoColor(i);
         }
       }
       return newColors;

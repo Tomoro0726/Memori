@@ -56,7 +56,7 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
           <div key={algoName} className={styles.colorItem}>
             <input
               type="color"
-              value={algoColors[algoName] || "#000000"}
+              value={algoColors[algoName] || "#2563eb"}
               onChange={(e) => onColorChange(algoName, e.target.value)}
               className={styles.colorInput}
             />

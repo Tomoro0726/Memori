@@ -186,18 +186,19 @@ function processScalingPatternRun(
   index: number,
   selectedPattern: string,
   selectedMetric: MetricKey,
-  historyCount: number,
+  isSingleRun: boolean,
   mergedMap: Map<number, Record<string, number>>,
   lineInfos: LineInfo[],
   addedLineKeys: Set<string>
 ): string {
-  const runLabel = index === 0 ? "Latest" : `Run-${run.fileName.split("_")[0]}`;
+  const runNum = run.fileName.replace(/\.json$/i, "").split("_")[0];
+  const runLabel = index === 0 ? "Latest" : `Run-${runNum}`;
   const patternData = run.data[selectedPattern];
 
   if (!patternData) return "";
 
   for (const [algoName, entries] of Object.entries(patternData.results)) {
-    const lineKey = historyCount === 1 ? algoName : `${algoName} (${runLabel})`;
+    const lineKey = isSingleRun ? algoName : `${algoName} (${runLabel})`;
     addLineInfoIfNew(lineInfos, addedLineKeys, lineKey, algoName, runLabel, index);
     addScalingMetricsToMap(entries, selectedMetric, lineKey, mergedMap);
   }
@@ -218,22 +219,33 @@ export function processScalingPattern(
   funcData: BenchmarkDataMap[string],
   selectedPattern: string,
   selectedMetric: MetricKey,
-  historyCount: number,
+  selectedRuns: number[],
   metricLabels: Map<MetricKey, string>
 ): ChartState {
-  const targetRuns = funcData.history.slice(0, historyCount);
+  const runIndices = selectedRuns.length > 0 ? selectedRuns : [0];
+  const targetRuns = runIndices
+    .map((runIndex) => ({ runIndex, run: funcData.history[runIndex] }))
+    .filter(
+      (
+        entry
+      ): entry is {
+        runIndex: number;
+        run: BenchmarkDataMap[string]["history"][number];
+      } => !!entry.run
+    );
+
   const mergedMap = new Map<number, Record<string, number>>();
   const lineInfos: LineInfo[] = [];
   const addedLineKeys = new Set<string>();
   let currentPatternDesc = "";
 
-  for (const [index, run] of targetRuns.entries()) {
+  for (const entry of targetRuns) {
     const desc = processScalingPatternRun(
-      run,
-      index,
+      entry.run,
+      entry.runIndex,
       selectedPattern,
       selectedMetric,
-      historyCount,
+      targetRuns.length === 1,
       mergedMap,
       lineInfos,
       addedLineKeys

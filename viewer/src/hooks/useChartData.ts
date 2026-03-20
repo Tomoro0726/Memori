@@ -44,7 +44,7 @@ export function useChartData(
   isInstant: boolean
 ): ChartState {
   return useMemo(() => {
-    const { selectedFunc, selectedPattern, selectedMetric, historyCount } = filters;
+    const { selectedFunc, selectedPattern, selectedMetric, selectedRuns } = filters;
 
     if (!selectedFunc || !selectedPattern) {
       return EMPTY_CHART_STATE;
@@ -62,7 +62,7 @@ export function useChartData(
       funcData,
       selectedPattern,
       selectedMetric,
-      historyCount,
+      selectedRuns,
       METRIC_LABELS
     );
   }, [benchmarkData, filters, isInstant]);

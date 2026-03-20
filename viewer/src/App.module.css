@@ -61,6 +61,77 @@
   border-color: #3b82f6;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
+.historyDisclosure {
+  position: relative; /* 開いたリストの基準位置になる */
+}
+
+/* 他の selectBox と見た目（余白、枠線、背景）を完全に一致させる */
+.historySummary {
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  background-color: #ffffff;
+  cursor: pointer;
+  list-style: none; /* デフォルトの黒い三角形を消す */
+  min-width: 12rem;
+  user-select: none;
+}
+
+/* セレクトボックス風の矢印を右端に配置 */
+.historySummary::after {
+  content: "▼";
+  font-size: 0.6rem;
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+}
+
+/* Safari 用のデフォルト三角形消し */
+.historySummary::-webkit-details-marker {
+  display: none;
+}
+
+/* ポップオーバーとして浮かせるリスト部分 */
+.historyChecks {
+  position: absolute;
+  top: calc(100% + 4px); /* ボタンのすぐ下 */
+  left: 0;
+  width: 100%;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  max-height: 14rem;
+  overflow-y: auto;
+  z-index: 50; /* グラフなどに重なって表示されるように */
+  padding: 0.5rem 0;
+}
+
+.historyCheckItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #374151;
+  padding: 0.35rem 1rem;
+  cursor: pointer;
+}
+
+.historyCheckItem:hover {
+  background-color: #f3f4f6;
+}
+
+.historyCheckItem input {
+  cursor: pointer;
+  width: 1rem;
+  height: 1rem;
+  accent-color: #3b82f6; /* チェック時の色を統一 */
+}
 
 .localLoadPanel {
   max-width: 40rem;

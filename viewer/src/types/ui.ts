@@ -34,5 +34,5 @@ export interface ChartFilters {
   selectedFunc: string;
   selectedPattern: string;
   selectedMetric: MetricKey;
-  historyCount: number;
+  selectedRuns: number[];
 }

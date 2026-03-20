@@ -108,7 +108,7 @@ export default function App() {
   const functions = Object.keys(benchmarkData);
 
   // フィルター状態の管理
-  const { filters, setSelectedFunc, setSelectedPattern, setSelectedMetric, setHistoryCount } =
+  const { filters, setSelectedFunc, setSelectedPattern, setSelectedMetric, toggleSelectedRun } =
     useChartFilters(functions, benchmarkData);
 
   // Instant/Scaling パターンを判定
@@ -167,8 +167,8 @@ export default function App() {
           selectedMetric={filters.selectedMetric}
           onSelectMetric={setSelectedMetric}
           isInstant={isInstant}
-          historyCount={filters.historyCount}
-          onHistoryCountChange={setHistoryCount}
+          selectedRuns={filters.selectedRuns}
+          onToggleSelectedRun={toggleSelectedRun}
         />
 
         <main>

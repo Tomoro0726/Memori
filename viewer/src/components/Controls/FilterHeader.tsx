@@ -29,10 +29,10 @@ interface FilterHeaderProps {
   onSelectMetric: (metric: MetricKey) => void;
   /** Instantパターンかどうか */
   isInstant: boolean;
-  /** 選択されている履歴数 */
-  historyCount: number;
-  /** 履歴数変更時のコールバック */
-  onHistoryCountChange: (count: number) => void;
+  /** 選択されている実行履歴インデックス群 */
+  selectedRuns: number[];
+  /** 実行履歴トグル時のコールバック */
+  onToggleSelectedRun: (runIndex: number) => void;
 }
 
 /**
@@ -50,10 +50,11 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   selectedMetric,
   onSelectMetric,
   isInstant,
-  historyCount,
-  onHistoryCountChange,
+  selectedRuns,
+  onToggleSelectedRun,
 }) => {
   const currentMeta = benchmarkData[selectedFunc]?.meta;
+  const historyRuns = benchmarkData[selectedFunc]?.history || [];
 
   return (
     <header className={styles.header}>
@@ -124,20 +125,33 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
         {/* Compare History (Scalingのときだけ表示) */}
         {!isInstant && (
           <div className={styles.filterGroup}>
-            <label className={styles.filterLabel} htmlFor="compare-history">
-              Compare History
-            </label>
-            <select
-              id="compare-history"
-              value={historyCount}
-              onChange={(e) => onHistoryCountChange(Number(e.target.value))}
-              className={styles.selectBox}
-            >
-              <option value={1}>Latest only</option>
-              <option value={2}>Last 2 runs</option>
-              <option value={3}>Last 3 runs</option>
-              <option value={5}>Last 5 runs</option>
-            </select>
+            {/* labelタグをspanタグに変更し、HTMLセマンティクスを正す */}
+            <span className={styles.filterLabel}>Compare History</span>
+            <details className={styles.historyDisclosure}>
+              {/* 閉じている時に表示されるボタン部分 */}
+              <summary className={styles.historySummary}>
+                {selectedRuns.length} runs selected
+              </summary>
+
+              {/* 開いた時に表示されるポップオーバー部分 */}
+              <div className={styles.historyChecks}>
+                {historyRuns.map((run, index) => {
+                  const runNum = run.fileName.replace(/\.json$/i, "").split("_")[0];
+                  const runLabel = index === 0 ? "Latest" : `Run-${runNum}`;
+
+                  return (
+                    <label key={run.fileName} className={styles.historyCheckItem}>
+                      <input
+                        type="checkbox"
+                        checked={selectedRuns.includes(index)}
+                        onChange={() => onToggleSelectedRun(index)}
+                      />
+                      {runLabel}
+                    </label>
+                  );
+                })}
+              </div>
+            </details>
           </div>
         )}
       </div>
