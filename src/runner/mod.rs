@@ -115,7 +115,16 @@ where
             #[cfg(feature = "real_time")]
             {
                 let elapsed = start_time.elapsed().as_nanos() as u64;
-                min_time_ns = Some(min_time_ns.unwrap_or(u64::MAX).min(elapsed));
+                match min_time_ns {
+                    Some(prev) => {
+                        if elapsed < prev {
+                            min_time_ns = Some(elapsed);
+                        }
+                    }
+                    None => {
+                        min_time_ns = Some(elapsed);
+                    }
+                }
             }
 
             group.disable().unwrap();
@@ -147,7 +156,7 @@ where
         Measurement::new(
             min_cycles,
             Some(min_inst),
-            min_time_ns, // ← 追加: 実時間
+            min_time_ns.or(Some(0)), // ← 実時間が取得できない場合は0を記録
             end_allocs - start_allocs,
             end_bytes - start_bytes,
             end_deallocs - start_deallocs,
@@ -180,7 +189,7 @@ where
 
         let samples = 100;
         let mut min_cycles = u64::MAX;
-        let min_time_ns: Option<u64> = None;
+        let mut min_time_ns: Option<u64> = None;
 
         #[cfg(target_arch = "x86_64")]
         {
@@ -188,27 +197,32 @@ where
             for _ in 0..samples {
                 unsafe {
                     _mm_lfence();
-                    let start = _rdtsc();
+                    let start_cycles = _rdtsc();
                     _mm_lfence();
 
-                    #[cfg(feature = "real_time")]
                     let start_time = std::time::Instant::now();
-
                     std::hint::black_box((self.function)(&self.input));
+                    let elapsed_time = start_time.elapsed().as_nanos() as u64;
 
-                    #[cfg(feature = "real_time")]
-                    {
-                        let elapsed = start_time.elapsed().as_nanos() as u64;
-                        min_time_ns = Some(min_time_ns.unwrap_or(u64::MAX).min(elapsed));
+                    // timeNs: always measure
+                    match min_time_ns {
+                        Some(prev) => {
+                            if elapsed_time < prev {
+                                min_time_ns = Some(elapsed_time);
+                            }
+                        }
+                        None => {
+                            min_time_ns = Some(elapsed_time);
+                        }
                     }
 
                     let mut aux: u32 = 0;
-                    let end = __rdtscp(&mut aux);
+                    let end_cycles = __rdtscp(&mut aux);
                     _mm_lfence();
 
-                    let elapsed = end - start;
-                    if elapsed < min_cycles {
-                        min_cycles = elapsed;
+                    let elapsed_cycles = end_cycles - start_cycles;
+                    if elapsed_cycles < min_cycles {
+                        min_cycles = elapsed_cycles;
                     }
                 }
             }
@@ -225,7 +239,16 @@ where
                 }
                 #[cfg(feature = "real_time")]
                 {
-                    min_time_ns = Some(min_time_ns.unwrap_or(u64::MAX).min(elapsed));
+                    match min_time_ns {
+                        Some(prev) => {
+                            if elapsed < prev {
+                                min_time_ns = Some(elapsed);
+                            }
+                        }
+                        None => {
+                            min_time_ns = Some(elapsed);
+                        }
+                    }
                 }
             }
         }
@@ -245,7 +268,7 @@ where
         Measurement::new(
             min_cycles,
             None,
-            min_time_ns, // ← 追加: 実時間
+            min_time_ns.or(Some(0)), // ← 実時間が取得できない場合は0を記録
             end_allocs - start_allocs,
             end_bytes - start_bytes,
             end_deallocs - start_deallocs,
