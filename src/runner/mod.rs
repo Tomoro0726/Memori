@@ -114,7 +114,6 @@ where
                 let _ = i.enable();
             }
 
-            // RDTSC計測開始 (VM環境用フォールバック)
             #[cfg(target_arch = "x86_64")]
             let start_rdtsc = unsafe {
                 core::arch::x86_64::_mm_lfence();
@@ -123,13 +122,26 @@ where
                 c
             };
 
+            #[cfg(feature = "real_time")]
             let start_time = std::time::Instant::now();
 
             std::hint::black_box((self.function)(&self.input));
 
-            let elapsed_ns = start_time.elapsed().as_nanos() as u64;
+            #[cfg(feature = "real_time")]
+            {
+                let elapsed_ns = start_time.elapsed().as_nanos() as u64;
+                match min_time_ns {
+                    Some(prev) => {
+                        if elapsed_ns < prev {
+                            min_time_ns = Some(elapsed_ns);
+                        }
+                    }
+                    None => {
+                        min_time_ns = Some(elapsed_ns);
+                    }
+                }
+            }
 
-            // RDTSC計測終了
             #[cfg(target_arch = "x86_64")]
             let end_rdtsc = unsafe {
                 let mut aux = 0;
@@ -137,17 +149,6 @@ where
                 core::arch::x86_64::_mm_lfence();
                 c
             };
-
-            match min_time_ns {
-                Some(prev) => {
-                    if elapsed_ns < prev {
-                        min_time_ns = Some(elapsed_ns);
-                    }
-                }
-                None => {
-                    min_time_ns = Some(elapsed_ns);
-                }
-            }
 
             #[cfg(target_arch = "x86_64")]
             {
@@ -187,11 +188,10 @@ where
         let end_deallocs = crate::DEALLOC_COUNT.load(Ordering::SeqCst);
         let end_dealloc_bytes = crate::DEALLOC_BYTES.load(Ordering::SeqCst);
 
-        // ★ 最高のサイクル数決定ロジック
         let final_cycles = if min_perf_cycles != u64::MAX {
-            min_perf_cycles // 物理Linuxなら、最も正確な perf_event の実サイクル数を採用
+            min_perf_cycles
         } else if min_rdtsc_cycles != u64::MAX {
-            min_rdtsc_cycles // GitHub Actions等のVM環境なら、RDTSCによるリファレンスサイクル数を採用
+            min_rdtsc_cycles
         } else {
             0
         };
@@ -205,7 +205,10 @@ where
         Measurement::new(
             final_cycles,
             final_inst,
+            #[cfg(feature = "real_time")]
             min_time_ns.or(Some(0)),
+            #[cfg(not(feature = "real_time"))]
+            None,
             end_allocs - start_allocs,
             end_bytes - start_bytes,
             end_deallocs - start_deallocs,
