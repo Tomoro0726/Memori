@@ -85,18 +85,24 @@ where
         }
 
         let mut group = Group::new().expect("権限エラー: perf_event_paranoid を確認してください");
-        let cycles_counter = Builder::new()
+        // 1. 変数としてBuilderを作り、ミュータブルな参照経由設定を適用する
+        let mut cycles_builder = Builder::new();
+        cycles_builder
             .group(&mut group)
             .kind(Hardware::CPU_CYCLES)
-            .exclude_kernel(true)
+            .exclude_kernel(true);
+        let cycles_counter = cycles_builder
             .build()
-            .unwrap();
-        let inst_counter = Builder::new()
+            .unwrap_or_else(|e| panic!("Failed to build cycles counter: {}", e));
+
+        let mut inst_builder = Builder::new();
+        inst_builder
             .group(&mut group)
             .kind(Hardware::INSTRUCTIONS)
-            .exclude_kernel(true)
+            .exclude_kernel(true);
+        let inst_counter = inst_builder
             .build()
-            .unwrap();
+            .unwrap_or_else(|e| panic!("Failed to build instructions counter: {}", e));
 
         let samples = 100;
         let mut min_cycles = u64::MAX;
