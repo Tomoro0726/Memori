@@ -36,6 +36,9 @@ jobs:
             rsync -a --exclude='.git' gh-pages-branch/ target/memori/
           fi
 
+      - name: Allow perf_event (for Hardware Metrics)
+        run: sudo sysctl -w kernel.perf_event_paranoid=-1
+
       - name: Run Memori Benchmarks
         run: cargo bench
 
