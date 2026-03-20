@@ -102,7 +102,7 @@ where
             {
                 let mut aux = 0;
                 let end_rdtsc = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
-                core::arch::x86_64::_mm_lfence();
+                unsafe { core::arch::x86_64::_mm_lfence() };
                 min_rdtsc_cycles = min_rdtsc_cycles.min(end_rdtsc.wrapping_sub(start_rdtsc));
             }
 
