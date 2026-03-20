@@ -52,10 +52,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
   algoColors,
 }) => {
   // 最大実行インデックスを計算してopacityを決定
-  const maxRunIndex = useMemo(
-    () => Math.max(0, ...lines.map((l) => l.runIndex)),
-    [lines],
-  );
+  const maxRunIndex = useMemo(() => Math.max(0, ...lines.map((l) => l.runIndex)), [lines]);
 
   const getOpacity = (runIndex: number) => {
     if (maxRunIndex === 0) return 1;
@@ -63,16 +60,9 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
   };
 
   return (
-    <div
-      ref={chartRef}
-      className={styles.chartArea}
-      style={{ height: `${height}px` }}
-    >
+    <div ref={chartRef} className={styles.chartArea} style={{ height: `${height}px` }}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={data}
-          margin={{ top: 10, right: 30, left: 60, bottom: 20 }}
-        >
+        <LineChart data={data} margin={{ top: 10, right: 30, left: 60, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
 
           <XAxis
@@ -96,11 +86,8 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
           />
 
           <Tooltip
-            formatter={(
-              value: number | string | readonly (number | string)[] | undefined,
-            ) => {
-              if (typeof value === "number")
-                return new Intl.NumberFormat().format(value);
+            formatter={(value: number | string | readonly (number | string)[] | undefined) => {
+              if (typeof value === "number") return new Intl.NumberFormat().format(value);
               if (Array.isArray(value)) return value.join(", ");
               return value ?? "";
             }}

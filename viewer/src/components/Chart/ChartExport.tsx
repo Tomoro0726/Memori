@@ -61,8 +61,7 @@ export const ChartExport: React.FC<ChartExportProps> = ({
     if (data.length === 0) return;
     const headers = [xAxisKey, ...lines.map((l) => l.key)].join(",");
     const rows = data.map(
-      (row) =>
-        `${String(row[xAxisKey])},${lines.map((line) => row[line.key] ?? "").join(",")}`,
+      (row) => `${String(row[xAxisKey])},${lines.map((line) => row[line.key] ?? "").join(",")}`
     );
     const csvContent = `data:text/csv;charset=utf-8,${[headers, ...rows].join("\n")}`;
     const encodedUri = encodeURI(csvContent);
@@ -76,18 +75,10 @@ export const ChartExport: React.FC<ChartExportProps> = ({
 
   return (
     <div className={styles.actions}>
-      <button
-        type="button"
-        onClick={downloadCSV}
-        className={`${styles.btn} ${styles.btnCsv}`}
-      >
+      <button type="button" onClick={downloadCSV} className={`${styles.btn} ${styles.btnCsv}`}>
         <FileSpreadsheet size={16} /> CSV
       </button>
-      <button
-        type="button"
-        onClick={downloadChart}
-        className={`${styles.btn} ${styles.btnImage}`}
-      >
+      <button type="button" onClick={downloadChart} className={`${styles.btn} ${styles.btnImage}`}>
         <Download size={16} /> Image
       </button>
     </div>

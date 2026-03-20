@@ -5,8 +5,8 @@
  */
 
 import type React from "react";
-import type { BenchmarkDataMap, MetricKey } from "../../types";
 import styles from "../../App.module.css";
+import type { BenchmarkDataMap, MetricKey } from "../../types";
 
 interface FilterHeaderProps {
   /** すべての関数リスト */

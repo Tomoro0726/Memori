@@ -5,13 +5,7 @@
  * グラフ表示用の形式に変換するロジック
  */
 
-import type {
-  BenchJsonEntry,
-  BenchmarkDataMap,
-  ChartState,
-  LineInfo,
-  MetricKey,
-} from "../types";
+import type { BenchJsonEntry, BenchmarkDataMap, ChartState, LineInfo, MetricKey } from "../types";
 
 type ChartDataPoint = Record<string, unknown>;
 
@@ -30,7 +24,7 @@ function addLineInfoIfNew(
   key: string,
   algoName: string,
   runLabel: string,
-  runIndex: number,
+  runIndex: number
 ): void {
   if (!addedLineKeys.has(key)) {
     addedLineKeys.add(key);
@@ -49,7 +43,7 @@ function addInstantMetricToPoint(
   algoName: string,
   entries: BenchJsonEntry[],
   selectedMetric: MetricKey,
-  dataPoint: ChartDataPoint,
+  dataPoint: ChartDataPoint
 ): void {
   if (entries.length === 0) return;
   const value = entries[0].measurement[selectedMetric];
@@ -69,7 +63,7 @@ function addScalingMetricsToMap(
   entries: BenchJsonEntry[],
   selectedMetric: MetricKey,
   lineKey: string,
-  mergedMap: Map<number, Record<string, number>>,
+  mergedMap: Map<number, Record<string, number>>
 ): void {
   for (const entry of entries) {
     const value = entry.measurement[selectedMetric];
@@ -105,7 +99,7 @@ function processInstantPatternRun(
   selectedMetric: MetricKey,
   dataMap: Map<number, ChartDataPoint>,
   lineInfos: LineInfo[],
-  addedLineKeys: Set<string>,
+  addedLineKeys: Set<string>
 ): string {
   const runNum = run.fileName.split("_")[0];
   const isLatest = index === targetRunsLength - 1;
@@ -140,7 +134,7 @@ export function processInstantPattern(
   funcData: BenchmarkDataMap[string],
   selectedPattern: string,
   selectedMetric: MetricKey,
-  metricLabels: Map<MetricKey, string>,
+  metricLabels: Map<MetricKey, string>
 ): ChartState {
   const targetRuns = [...funcData.history].reverse();
   const trendMap = new Map<number, ChartDataPoint>();
@@ -157,7 +151,7 @@ export function processInstantPattern(
       selectedMetric,
       trendMap,
       lineInfos,
-      addedLineKeys,
+      addedLineKeys
     );
     if (desc) currentPatternDesc = desc;
   }
@@ -195,7 +189,7 @@ function processScalingPatternRun(
   historyCount: number,
   mergedMap: Map<number, Record<string, number>>,
   lineInfos: LineInfo[],
-  addedLineKeys: Set<string>,
+  addedLineKeys: Set<string>
 ): string {
   const runLabel = index === 0 ? "Latest" : `Run-${run.fileName.split("_")[0]}`;
   const patternData = run.data[selectedPattern];
@@ -204,14 +198,7 @@ function processScalingPatternRun(
 
   for (const [algoName, entries] of Object.entries(patternData.results)) {
     const lineKey = historyCount === 1 ? algoName : `${algoName} (${runLabel})`;
-    addLineInfoIfNew(
-      lineInfos,
-      addedLineKeys,
-      lineKey,
-      algoName,
-      runLabel,
-      index,
-    );
+    addLineInfoIfNew(lineInfos, addedLineKeys, lineKey, algoName, runLabel, index);
     addScalingMetricsToMap(entries, selectedMetric, lineKey, mergedMap);
   }
 
@@ -232,7 +219,7 @@ export function processScalingPattern(
   selectedPattern: string,
   selectedMetric: MetricKey,
   historyCount: number,
-  metricLabels: Map<MetricKey, string>,
+  metricLabels: Map<MetricKey, string>
 ): ChartState {
   const targetRuns = funcData.history.slice(0, historyCount);
   const mergedMap = new Map<number, Record<string, number>>();
@@ -249,13 +236,13 @@ export function processScalingPattern(
       historyCount,
       mergedMap,
       lineInfos,
-      addedLineKeys,
+      addedLineKeys
     );
     if (desc) currentPatternDesc = desc;
   }
 
   const finalData = Array.from(mergedMap.values()).sort(
-    (a, b) => (a.input as number) - (b.input as number),
+    (a, b) => (a.input as number) - (b.input as number)
   );
 
   return {

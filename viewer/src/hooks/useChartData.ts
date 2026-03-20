@@ -5,16 +5,8 @@
  */
 
 import { useMemo } from "react";
-import type {
-  BenchmarkDataMap,
-  ChartFilters,
-  ChartState,
-  MetricKey,
-} from "../types";
-import {
-  processInstantPattern,
-  processScalingPattern,
-} from "../utils/chartData";
+import type { BenchmarkDataMap, ChartFilters, ChartState, MetricKey } from "../types";
+import { processInstantPattern, processScalingPattern } from "../utils/chartData";
 
 /**
  * メトリックの表示ラベルマップ
@@ -49,11 +41,10 @@ const EMPTY_CHART_STATE: ChartState = {
 export function useChartData(
   benchmarkData: BenchmarkDataMap,
   filters: ChartFilters,
-  isInstant: boolean,
+  isInstant: boolean
 ): ChartState {
   return useMemo(() => {
-    const { selectedFunc, selectedPattern, selectedMetric, historyCount } =
-      filters;
+    const { selectedFunc, selectedPattern, selectedMetric, historyCount } = filters;
 
     if (!selectedFunc || !selectedPattern) {
       return EMPTY_CHART_STATE;
@@ -65,19 +56,14 @@ export function useChartData(
     }
 
     if (isInstant) {
-      return processInstantPattern(
-        funcData,
-        selectedPattern,
-        selectedMetric,
-        METRIC_LABELS,
-      );
+      return processInstantPattern(funcData, selectedPattern, selectedMetric, METRIC_LABELS);
     }
     return processScalingPattern(
       funcData,
       selectedPattern,
       selectedMetric,
       historyCount,
-      METRIC_LABELS,
+      METRIC_LABELS
     );
   }, [benchmarkData, filters, isInstant]);
 }
