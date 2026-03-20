@@ -4,5 +4,5 @@
  * カスタムフックの統一的なエントリーポイント
  */
 
-export { useChartFilters, useIsInstantPattern } from "./useChartFilters";
+export { useChartFilters, useHasScalingPattern } from "./useChartFilters";
 export { useChartData, getMetricLabel } from "./useChartData";

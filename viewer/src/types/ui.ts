@@ -32,7 +32,6 @@ export interface ChartState {
 /** グラフコントローラー内の選択状態 */
 export interface ChartFilters {
   selectedFunc: string;
-  selectedPattern: string;
   selectedMetric: MetricKey;
   selectedRuns: number[];
 }

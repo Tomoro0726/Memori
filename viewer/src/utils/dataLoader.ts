@@ -31,12 +31,7 @@ type JsonMap = Record<string, unknown>;
  */
 function validateBenchmarkData(data: BenchmarkDataMap): boolean {
   for (const [, funcData] of Object.entries(data)) {
-    if (
-      funcData &&
-      typeof funcData === "object" &&
-      "meta" in funcData &&
-      "history" in funcData
-    ) {
+    if (funcData && typeof funcData === "object" && "meta" in funcData && "history" in funcData) {
       return true;
     }
   }
@@ -95,9 +90,7 @@ async function fetchJson<T>(relativePath: string): Promise<T | null> {
 
       xhr.onload = () => {
         if (xhr.status !== 0 && (xhr.status < 200 || xhr.status >= 300)) {
-          console.warn(
-            `Failed to load via XHR: ${relativePath} (${xhr.status})`,
-          );
+          console.warn(`Failed to load via XHR: ${relativePath} (${xhr.status})`);
           resolve(null);
           return;
         }
@@ -105,10 +98,7 @@ async function fetchJson<T>(relativePath: string): Promise<T | null> {
         try {
           resolve(JSON.parse(xhr.responseText) as T);
         } catch (parseErr) {
-          console.warn(
-            `Failed to parse JSON via XHR: ${relativePath}`,
-            parseErr,
-          );
+          console.warn(`Failed to parse JSON via XHR: ${relativePath}`, parseErr);
           resolve(null);
         }
       };
@@ -141,7 +131,7 @@ function isValidManifestEntry(entry: unknown): entry is ReportManifestEntry {
 }
 
 async function loadFunctionDataFromManifestEntry(
-  entry: ReportManifestEntry,
+  entry: ReportManifestEntry
 ): Promise<[string, BenchmarkDataMap[string]] | null> {
   const meta = await fetchJson<FuncMetadata>(entry.mainJsonPath);
   const history = [] as BenchmarkDataMap[string]["history"];
@@ -149,8 +139,7 @@ async function loadFunctionDataFromManifestEntry(
   const maxHistoryNumber = Number(entry.maxHistoryNumber) || 0;
   for (let num = maxHistoryNumber; num >= 1; num--) {
     const historyPath = `${entry.name}/${String(num).padStart(3, "0")}.json`;
-    const historyData =
-      await fetchJson<Record<string, BenchJsonReport>>(historyPath);
+    const historyData = await fetchJson<Record<string, BenchJsonReport>>(historyPath);
     if (!historyData) {
       continue;
     }
@@ -187,24 +176,19 @@ async function loadProductionData(): Promise<BenchmarkDataMap> {
   const manifest = await fetchJson<ReportManifest>("report-manifest.json");
   if (!manifest || !Array.isArray(manifest.functions)) {
     throw new Error(
-      "Failed to load report-manifest.json. If you opened report.html directly, try serving target/memori over a local HTTP server.",
+      "Failed to load report-manifest.json. If you opened report.html directly, try serving target/memori over a local HTTP server."
     );
   }
 
   const validEntries = manifest.functions.filter(isValidManifestEntry);
   const loadedEntries = await Promise.all(
-    validEntries.map((entry) => loadFunctionDataFromManifestEntry(entry)),
+    validEntries.map((entry) => loadFunctionDataFromManifestEntry(entry))
   );
   const parsedData: BenchmarkDataMap = Object.fromEntries(
-    loadedEntries.filter(
-      (entry): entry is [string, BenchmarkDataMap[string]] => entry !== null,
-    ),
+    loadedEntries.filter((entry): entry is [string, BenchmarkDataMap[string]] => entry !== null)
   );
 
-  if (
-    !validateBenchmarkData(parsedData) &&
-    Object.keys(parsedData).length > 0
-  ) {
+  if (!validateBenchmarkData(parsedData) && Object.keys(parsedData).length > 0) {
     console.warn("Loaded benchmark data format may be incomplete.");
   }
 
@@ -221,7 +205,7 @@ function isHistoryJsonFile(fileName: string): boolean {
 
 function ensureFunctionData(
   parsedData: BenchmarkDataMap,
-  funcName: string,
+  funcName: string
 ): BenchmarkDataMap[string] {
   if (!parsedData[funcName]) {
     parsedData[funcName] = { meta: null, history: [] };
@@ -231,13 +215,12 @@ function ensureFunctionData(
 }
 
 function toRelativePath(file: File): string {
-  const webkitPath =
-    "webkitRelativePath" in file ? file.webkitRelativePath : "";
+  const webkitPath = "webkitRelativePath" in file ? file.webkitRelativePath : "";
   return normalizeBrowserRelativePath(webkitPath || file.name);
 }
 
 function parseJsonDescriptor(
-  file: File,
+  file: File
 ): { relPath: string; funcName: string; fileName: string } | null {
   if (!file.name.endsWith(".json")) {
     return null;
@@ -261,7 +244,7 @@ function parseJsonDescriptor(
 async function assignLocalJsonToData(
   parsedData: BenchmarkDataMap,
   file: File,
-  descriptor: { relPath: string; funcName: string; fileName: string },
+  descriptor: { relPath: string; funcName: string; fileName: string }
 ): Promise<void> {
   const target = ensureFunctionData(parsedData, descriptor.funcName);
   const content = JSON.parse(await file.text()) as JsonMap;
@@ -287,7 +270,7 @@ async function assignLocalJsonToData(
  * file input (webkitdirectory) で選択したJSON群からデータを組み立てる
  */
 export async function loadBenchmarkDataFromFileList(
-  fileList: FileList | File[],
+  fileList: FileList | File[]
 ): Promise<BenchmarkDataMap> {
   const files = Array.from(fileList);
   const parsedData: BenchmarkDataMap = {};
@@ -306,9 +289,7 @@ export async function loadBenchmarkDataFromFileList(
   }
 
   for (const funcName in parsedData) {
-    parsedData[funcName].history.sort((a, b) =>
-      b.fileName.localeCompare(a.fileName),
-    );
+    parsedData[funcName].history.sort((a, b) => b.fileName.localeCompare(a.fileName));
   }
 
   return parsedData;
@@ -351,9 +332,7 @@ function loadDevelopmentData(): BenchmarkDataMap {
 
   // UI表示用に、ファイル名（001_, 002_...）の降順（最新が先頭）でソート
   for (const funcName in parsedData) {
-    parsedData[funcName].history.sort((a, b) =>
-      b.fileName.localeCompare(a.fileName),
-    );
+    parsedData[funcName].history.sort((a, b) => b.fileName.localeCompare(a.fileName));
   }
 
   return parsedData;

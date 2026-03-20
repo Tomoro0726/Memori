@@ -1,7 +1,7 @@
 /**
  * FilterHeader component
  *
- * ベンチマークデータのフィルター（関数、パターン、メトリック、履歴数）を作成するコンポーネント
+ * ベンチマークデータのフィルター（関数、メトリック、履歴数）を作成するコンポーネント
  */
 
 import type React from "react";
@@ -17,18 +17,14 @@ interface FilterHeaderProps {
   onSelectFunc: (func: string) => void;
   /** ベンチマークデータ */
   benchmarkData: BenchmarkDataMap;
-  /** 選択されているパターン */
-  selectedPattern: string;
-  /** パターン選択時のコールバック */
-  onSelectPattern: (pattern: string) => void;
   /** メトリックのラベルマップ */
   metricLabels: Array<{ key: MetricKey; label: string }>;
   /** 選択されているメトリック */
   selectedMetric: MetricKey;
   /** メトリック選択時のコールバック */
   onSelectMetric: (metric: MetricKey) => void;
-  /** Instantパターンかどうか */
-  isInstant: boolean;
+  /** Scalingパターンが存在するかどうか（Compare History表示用） */
+  hasScaling: boolean;
   /** 選択されている実行履歴インデックス群 */
   selectedRuns: number[];
   /** 実行履歴トグル時のコールバック */
@@ -44,16 +40,13 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   selectedFunc,
   onSelectFunc,
   benchmarkData,
-  selectedPattern,
-  onSelectPattern,
   metricLabels,
   selectedMetric,
   onSelectMetric,
-  isInstant,
+  hasScaling,
   selectedRuns,
   onToggleSelectedRun,
 }) => {
-  const currentMeta = benchmarkData[selectedFunc]?.meta;
   const historyRuns = benchmarkData[selectedFunc]?.history || [];
 
   return (
@@ -84,25 +77,6 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
           </select>
         </div>
 
-        {/* Benchmark Pattern */}
-        <div className={styles.filterGroup}>
-          <label className={styles.filterLabel} htmlFor="bench-pattern">
-            Benchmark Pattern
-          </label>
-          <select
-            id="bench-pattern"
-            value={selectedPattern}
-            onChange={(e) => onSelectPattern(e.target.value)}
-            className={styles.selectBox}
-          >
-            {currentMeta?.patterns.map((p) => (
-              <option key={p.name} value={p.name}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
         {/* Metric to Graph */}
         <div className={styles.filterGroup}>
           <label className={styles.filterLabel} htmlFor="metric-graph">
@@ -122,30 +96,22 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
           </select>
         </div>
 
-        {/* Compare History (Scalingのときだけ表示) */}
-        {!isInstant && (
+        {/* Compare History (Scalingが含まれるときだけ表示) */}
+        {hasScaling && (
           <div className={styles.filterGroup}>
-            {/* labelタグをspanタグに変更し、HTMLセマンティクスを正す */}
             <span className={styles.filterLabel}>Compare History</span>
             <details className={styles.historyDisclosure}>
-              {/* 閉じている時に表示されるボタン部分 */}
               <summary className={styles.historySummary}>
                 {selectedRuns.length} runs selected
               </summary>
 
-              {/* 開いた時に表示されるポップオーバー部分 */}
               <div className={styles.historyChecks}>
                 {historyRuns.map((run, index) => {
-                  const runNum = run.fileName
-                    .replace(/\.json$/i, "")
-                    .split("_")[0];
+                  const runNum = run.fileName.replace(/\.json$/i, "").split("_")[0];
                   const runLabel = index === 0 ? "Latest" : `Run-${runNum}`;
 
                   return (
-                    <label
-                      key={run.fileName}
-                      className={styles.historyCheckItem}
-                    >
+                    <label key={run.fileName} className={styles.historyCheckItem}>
                       <input
                         type="checkbox"
                         checked={selectedRuns.includes(index)}

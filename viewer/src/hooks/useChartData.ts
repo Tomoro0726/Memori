@@ -19,53 +19,40 @@ const METRIC_LABELS: Map<MetricKey, string> = new Map([
 ]);
 
 /**
- * グラフの空データ状態
- */
-const EMPTY_CHART_STATE: ChartState = {
-  chartData: [],
-  lines: [],
-  chartTitle: "",
-  chartDesc: "",
-  yAxisLabel: "",
-  xAxisKey: "",
-  xAxisLabel: "",
-};
-
-/**
  * フィルター設定からグラフ表示用のデータを生成するカスタムフック
  * @param benchmarkData - ベンチマークデータ全体
  * @param filters - フィルター設定
- * @param isInstant - Instantパターンかどうか
- * @returns グラフ表示用ステート
+ * @returns グラフ表示用ステートの配列（パターンごと）
  */
-export function useChartData(
-  benchmarkData: BenchmarkDataMap,
-  filters: ChartFilters,
-  isInstant: boolean
-): ChartState {
+export function useChartData(benchmarkData: BenchmarkDataMap, filters: ChartFilters): ChartState[] {
   return useMemo(() => {
-    const { selectedFunc, selectedPattern, selectedMetric, selectedRuns } = filters;
+    const { selectedFunc, selectedMetric, selectedRuns } = filters;
 
-    if (!selectedFunc || !selectedPattern) {
-      return EMPTY_CHART_STATE;
+    if (!selectedFunc) {
+      return [];
     }
 
     const funcData = benchmarkData[selectedFunc];
-    if (!funcData) {
-      return EMPTY_CHART_STATE;
+    if (!funcData || !funcData.meta) {
+      return [];
     }
 
-    if (isInstant) {
-      return processInstantPattern(funcData, selectedPattern, selectedMetric, METRIC_LABELS);
+    const charts: ChartState[] = [];
+
+    // Funcに含まれるすべてのパターンを処理してグラフデータの配列を作る
+    for (const pattern of funcData.meta.patterns) {
+      const isInstant = pattern.patternType === "instant";
+      if (isInstant) {
+        charts.push(processInstantPattern(funcData, pattern.name, selectedMetric, METRIC_LABELS));
+      } else {
+        charts.push(
+          processScalingPattern(funcData, pattern.name, selectedMetric, selectedRuns, METRIC_LABELS)
+        );
+      }
     }
-    return processScalingPattern(
-      funcData,
-      selectedPattern,
-      selectedMetric,
-      selectedRuns,
-      METRIC_LABELS
-    );
-  }, [benchmarkData, filters, isInstant]);
+
+    return charts;
+  }, [benchmarkData, filters]);
 }
 
 /**
