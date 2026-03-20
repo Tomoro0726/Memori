@@ -2,6 +2,10 @@
 name = "memori"
 version = "0.0.1"
 edition = "2024"
+authors = ["Tomoro Saito<s.tomoro0726@gmail.com>"]
+description = "A highly precise benchmarking and profiling suite for Rust."
+
+
 
 [dependencies]
 serde_json = "1.0.149"
