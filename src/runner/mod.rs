@@ -80,29 +80,31 @@ where
     pub fn run(&mut self) -> Measurement {
         use perf_event::{Builder, Group, events::Hardware};
 
+        // ウォームアップ
         for _ in 0..100 {
             std::hint::black_box((self.function)(&self.input));
         }
 
-        let mut group = Group::new().expect("権限エラー: perf_event_paranoid を確認してください");
+        // 1. Groupの作成（権限がない場合はNoneになる）
+        let mut group = Group::new().ok();
 
-        let mut cycles_builder = Builder::new().group(&mut group).kind(Hardware::CPU_CYCLES);
+        // 2. サイクルカウンタ（VMなどでハードウェア機能がない場合はNoneになる）
+        let cycles_counter = if let Some(g) = group.as_mut() {
+            let mut b = Builder::new().group(g).kind(Hardware::CPU_CYCLES);
+            b.exclude_kernel(true);
+            b.build().ok()
+        } else {
+            None
+        };
 
-        cycles_builder.exclude_kernel(true);
-
-        let cycles_counter = cycles_builder
-            .build()
-            .unwrap_or_else(|e| panic!("Failed to build cycles counter: {}", e));
-
-        let mut inst_builder = Builder::new()
-            .group(&mut group)
-            .kind(Hardware::INSTRUCTIONS);
-
-        inst_builder.exclude_kernel(true);
-
-        let inst_counter = inst_builder
-            .build()
-            .unwrap_or_else(|e| panic!("Failed to build instructions counter: {}", e));
+        // 3. 命令数カウンタ
+        let inst_counter = if let Some(g) = group.as_mut() {
+            let mut b = Builder::new().group(g).kind(Hardware::INSTRUCTIONS);
+            b.exclude_kernel(true);
+            b.build().ok()
+        } else {
+            None
+        };
 
         let samples = 100;
         let mut min_cycles = u64::MAX;
@@ -110,8 +112,11 @@ where
         let mut min_time_ns: Option<u64> = None;
 
         for _ in 0..samples {
-            group.reset().unwrap();
-            group.enable().unwrap();
+            // Groupが存在する場合のみリセット＆開始
+            if let Some(g) = group.as_mut() {
+                let _ = g.reset();
+                let _ = g.enable();
+            }
 
             #[cfg(feature = "real_time")]
             let start_time = std::time::Instant::now();
@@ -133,17 +138,23 @@ where
                 }
             }
 
-            group.disable().unwrap();
-            let counts = group.read().unwrap();
-
-            let c = counts[&cycles_counter];
-            let i = counts[&inst_counter];
-
-            if c < min_cycles {
-                min_cycles = c;
-            }
-            if i < min_inst {
-                min_inst = i;
+            // Groupが存在する場合のみ停止＆読み取り
+            if let Some(g) = group.as_mut() {
+                let _ = g.disable();
+                if let Ok(counts) = g.read() {
+                    if let Some(c_counter) = &cycles_counter {
+                        let c = counts[c_counter];
+                        if c < min_cycles {
+                            min_cycles = c;
+                        }
+                    }
+                    if let Some(i_counter) = &inst_counter {
+                        let i = counts[i_counter];
+                        if i < min_inst {
+                            min_inst = i;
+                        }
+                    }
+                }
             }
         }
 
@@ -159,10 +170,22 @@ where
         let end_deallocs = crate::DEALLOC_COUNT.load(Ordering::SeqCst);
         let end_dealloc_bytes = crate::DEALLOC_BYTES.load(Ordering::SeqCst);
 
+        // もし計測に失敗・非対応環境だった場合は0（またはNone）とする
+        let final_cycles = if min_cycles == u64::MAX {
+            0
+        } else {
+            min_cycles
+        };
+        let final_inst = if min_inst == u64::MAX {
+            None
+        } else {
+            Some(min_inst)
+        };
+
         Measurement::new(
-            min_cycles,
-            Some(min_inst),
-            min_time_ns.or(Some(0)), // ← 実時間が取得できない場合は0を記録
+            final_cycles,
+            final_inst,
+            min_time_ns.or(Some(0)),
             end_allocs - start_allocs,
             end_bytes - start_bytes,
             end_deallocs - start_deallocs,
