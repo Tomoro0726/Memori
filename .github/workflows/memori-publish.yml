@@ -46,4 +46,4 @@ jobs:
           publish_dir: ./target/memori
           publish_branch: ${{ inputs.pages_branch }}
           keep_files: false
-          commit_message: "docs(memori): update benchmark report [skip ci]"
+          commit_message: "update benchmark report [skip ci]"
