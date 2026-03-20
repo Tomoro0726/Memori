@@ -179,17 +179,16 @@ where
             #[cfg(feature = "real_time")]
             let start_time = std::time::Instant::now();
 
+            std::hint::black_box((self.function)(&self.input));
+
             #[cfg(target_arch = "x86_64")]
             {
-                // RDTSC timing
+                // RDTSC timing (after function execution)
                 let mut aux = 0;
                 let end_cycles = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
                 unsafe { core::arch::x86_64::_mm_lfence() };
                 min_cycles = min_cycles.min(end_cycles - start_cycles);
             }
-
-            // 共通化: 実行前後でInstant計測
-            std::hint::black_box((self.function)(&self.input));
 
             #[cfg(feature = "real_time")]
             {
@@ -205,6 +204,11 @@ where
 
         std::hint::black_box((self.function)(&self.input));
 
+        let end_allocs = crate::ALLOC_COUNT.load(Ordering::SeqCst);
+        let end_bytes = crate::ALLOC_BYTES.load(Ordering::SeqCst);
+        let end_deallocs = crate::DEALLOC_COUNT.load(Ordering::SeqCst);
+        let end_dealloc_bytes = crate::DEALLOC_BYTES.load(Ordering::SeqCst);
+
         Measurement::new(
             if min_cycles == u64::MAX {
                 0
@@ -216,10 +220,10 @@ where
             min_time_ns.or(Some(0)),
             #[cfg(not(feature = "real_time"))]
             None,
-            crate::ALLOC_COUNT.load(Ordering::SeqCst) - start_allocs,
-            crate::ALLOC_BYTES.load(Ordering::SeqCst) - start_bytes,
-            crate::DEALLOC_COUNT.load(Ordering::SeqCst) - start_deallocs,
-            crate::DEALLOC_BYTES.load(Ordering::SeqCst) - start_dealloc_bytes,
+            end_allocs - start_allocs,
+            end_bytes - start_bytes,
+            end_deallocs - start_deallocs,
+            end_dealloc_bytes - start_dealloc_bytes,
         )
     }
 }
