@@ -78,35 +78,27 @@ where
     /// </details>
     #[cfg(target_os = "linux")]
     pub fn run(&mut self) -> Measurement {
-        use perf_event::{Builder, Group, events::Hardware};
+        // Groupを削除し、独立して扱う
+        use perf_event::{Builder, events::Hardware};
 
         // ウォームアップ
         for _ in 0..100 {
             std::hint::black_box((self.function)(&self.input));
         }
 
-        // 1. ハードウェアカウンタのセットアップ（All or Nothing）
-        // クロージャ内で1つでも構築に失敗(?)した場合、直ちにNoneを返して全体を破棄します
-        let setup_result = (|| -> Option<(Group, perf_event::Counter, perf_event::Counter)> {
-            let mut group = Group::new().ok()?;
+        let mut cycles_counter = {
+            // Builder::new() と .kind() は所有権を返すので繋げてOK
+            let mut b = Builder::new().kind(Hardware::CPU_CYCLES);
+            // exclude_kernel は &mut (参照) を返すので単独の行で呼ぶ
+            b.exclude_kernel(true);
+            // 変数 b 本体から build() を呼んで所有権を消費する
+            b.build().ok()
+        };
 
-            let mut c_builder = Builder::new().group(&mut group).kind(Hardware::CPU_CYCLES);
-            c_builder.exclude_kernel(true);
-            let cycles_counter = c_builder.build().ok()?;
-
-            let mut i_builder = Builder::new()
-                .group(&mut group)
-                .kind(Hardware::INSTRUCTIONS);
-            i_builder.exclude_kernel(true);
-            let inst_counter = i_builder.build().ok()?;
-
-            Some((group, cycles_counter, inst_counter))
-        })();
-
-        // 成功した場合はそれぞれの変数に入れ、失敗した場合は全てNoneとして扱います
-        let (mut group, cycles_counter, inst_counter) = match setup_result {
-            Some((g, c, i)) => (Some(g), Some(c), Some(i)),
-            None => (None, None, None),
+        let mut inst_counter = {
+            let mut b = Builder::new().kind(Hardware::INSTRUCTIONS);
+            b.exclude_kernel(true);
+            b.build().ok()
         };
 
         let samples = 100;
@@ -115,10 +107,14 @@ where
         let mut min_time_ns: Option<u64> = None;
 
         for _ in 0..samples {
-            // Groupが正常に構築されている場合のみリセット＆開始
-            if let Some(g) = group.as_mut() {
-                let _ = g.reset();
-                let _ = g.enable();
+            // それぞれ独立してリセット＆開始
+            if let Some(c) = cycles_counter.as_mut() {
+                let _ = c.reset();
+                let _ = c.enable();
+            }
+            if let Some(i) = inst_counter.as_mut() {
+                let _ = i.reset();
+                let _ = i.enable();
             }
 
             #[cfg(feature = "real_time")]
@@ -141,21 +137,20 @@ where
                 }
             }
 
-            // Groupが正常に構築されている場合のみ停止＆読み取り
-            if let Some(g) = group.as_mut() {
-                let _ = g.disable();
-                if let Ok(counts) = g.read() {
-                    // setupが成功していればカウンタも必ずSomeになる
-                    if let (Some(c_cnt), Some(i_cnt)) = (&cycles_counter, &inst_counter) {
-                        let c = counts[c_cnt];
-                        let i = counts[i_cnt];
-
-                        if c < min_cycles {
-                            min_cycles = c;
-                        }
-                        if i < min_inst {
-                            min_inst = i;
-                        }
+            // それぞれ独立して停止＆読み取り
+            if let Some(i) = inst_counter.as_mut() {
+                let _ = i.disable();
+                if let Ok(count) = i.read() {
+                    if count < min_inst {
+                        min_inst = count;
+                    }
+                }
+            }
+            if let Some(c) = cycles_counter.as_mut() {
+                let _ = c.disable();
+                if let Ok(count) = c.read() {
+                    if count < min_cycles {
+                        min_cycles = count;
                     }
                 }
             }
@@ -173,7 +168,7 @@ where
         let end_deallocs = crate::DEALLOC_COUNT.load(Ordering::SeqCst);
         let end_dealloc_bytes = crate::DEALLOC_BYTES.load(Ordering::SeqCst);
 
-        // フォールバック処理（計測できなかった場合は 0 または None にする）
+        // フォールバック処理
         let final_cycles = if min_cycles == u64::MAX {
             0
         } else {
