@@ -179,6 +179,16 @@ where
             #[cfg(feature = "real_time")]
             let start_time = std::time::Instant::now();
 
+            #[cfg(target_arch = "x86_64")]
+            {
+                // RDTSC timing
+                let mut aux = 0;
+                let end_cycles = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
+                unsafe { core::arch::x86_64::_mm_lfence() };
+                min_cycles = min_cycles.min(end_cycles - start_cycles);
+            }
+
+            // 共通化: 実行前後でInstant計測
             std::hint::black_box((self.function)(&self.input));
 
             #[cfg(feature = "real_time")]
@@ -186,16 +196,6 @@ where
                 let elapsed = start_time.elapsed().as_nanos() as u64;
                 min_time_ns = Some(min_time_ns.map_or(elapsed, |prev| prev.min(elapsed)));
             }
-
-            #[cfg(target_arch = "x86_64")]
-            {
-                let mut aux = 0;
-                let end_cycles = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
-                unsafe { core::arch::x86_64::_mm_lfence() };
-                min_cycles = min_cycles.min(end_cycles - start_cycles);
-            }
-
-            // Removed redundant double execution for non-x86_64
         }
 
         let start_allocs = crate::ALLOC_COUNT.load(Ordering::SeqCst);
