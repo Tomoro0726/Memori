@@ -4,9 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-kasane-logic = { path = "../kasane-logic" }
 serde_json = "1.0.149"
-chrono = "0.4.44"
 serde = { version = "1.0", features = ["derive"] }
 
 [features]
