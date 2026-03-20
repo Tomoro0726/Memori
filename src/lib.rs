@@ -31,6 +31,7 @@ pub mod allocator;
 pub mod func;
 pub mod runner;
 
+pub use allocator::TrackingAllocator;
 pub use func::{Bench, Func};
 pub use runner::Runner;
 pub use runner::measurement::Measurement;

@@ -13,7 +13,7 @@ use memori::{Bench, Func};
 use std::collections::HashSet;
 
 #[global_allocator]
-static ALLOC: memori::allocator::TrackingAllocator = memori::allocator::TrackingAllocator;
+static ALLOC: TrackingAllocator = TrackingAllocator;
 
 fn main() {
     let mut suite = Func::new("Deduplication_Battle")
