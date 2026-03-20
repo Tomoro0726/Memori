@@ -13,13 +13,35 @@ import type { BenchmarkDataMap, ChartFilters, MetricKey } from "../types";
  * @param benchmarkData - ベンチマークデータ全体
  * @returns 状態管理オブジェクト
  */
-export function useChartFilters(initialFunctions: string[], benchmarkData: BenchmarkDataMap) {
+export function useChartFilters(
+  initialFunctions: string[],
+  benchmarkData: BenchmarkDataMap,
+) {
   const [filters, setFilters] = useState<ChartFilters>({
     selectedFunc: initialFunctions[0] || "",
     selectedPattern: "",
     selectedMetric: "cycles",
     historyCount: 1,
   });
+
+  // 非同期ロード後に関数一覧が揃った場合、選択状態を補正する
+  useEffect(() => {
+    if (initialFunctions.length === 0) {
+      return;
+    }
+
+    setFilters((prev) => {
+      if (prev.selectedFunc && initialFunctions.includes(prev.selectedFunc)) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        selectedFunc: initialFunctions[0],
+        selectedPattern: "",
+      };
+    });
+  }, [initialFunctions]);
 
   // 関数が変更されたら、最初のパターンを自動選択
   useEffect(() => {
@@ -33,12 +55,14 @@ export function useChartFilters(initialFunctions: string[], benchmarkData: Bench
 
   return {
     filters,
-    setSelectedFunc: (func: string) => setFilters((prev) => ({ ...prev, selectedFunc: func })),
+    setSelectedFunc: (func: string) =>
+      setFilters((prev) => ({ ...prev, selectedFunc: func })),
     setSelectedPattern: (pattern: string) =>
       setFilters((prev) => ({ ...prev, selectedPattern: pattern })),
     setSelectedMetric: (metric: MetricKey) =>
       setFilters((prev) => ({ ...prev, selectedMetric: metric })),
-    setHistoryCount: (count: number) => setFilters((prev) => ({ ...prev, historyCount: count })),
+    setHistoryCount: (count: number) =>
+      setFilters((prev) => ({ ...prev, historyCount: count })),
   };
 }
 
@@ -52,9 +76,11 @@ export function useChartFilters(initialFunctions: string[], benchmarkData: Bench
 export function useIsInstantPattern(
   benchmarkData: BenchmarkDataMap,
   selectedFunc: string,
-  selectedPattern: string
+  selectedPattern: string,
 ): boolean {
   const currentMeta = benchmarkData[selectedFunc]?.meta;
-  const currentPatternMeta = currentMeta?.patterns.find((p) => p.name === selectedPattern);
+  const currentPatternMeta = currentMeta?.patterns.find(
+    (p) => p.name === selectedPattern,
+  );
   return currentPatternMeta?.patternType === "instant";
 }

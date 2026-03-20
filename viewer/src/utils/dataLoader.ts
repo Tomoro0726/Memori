@@ -1,18 +1,19 @@
 /**
  * Data loading and validation utilities
  *
- * ベンチマークデータをRustから注入されたグローバル変数またはローカルファイルから読み込む
+ * ベンチマークデータをmanifest経由でローカルJSONファイルから読み込む
  */
 
 import type { BenchJsonReport, BenchmarkDataMap, FuncMetadata } from "../types";
 
-/**
- * Rustから注入されるグローバル変数の型定義
- */
-declare global {
-  interface Window {
-    __TENBIN_DATA__?: Record<string, unknown> | null;
-  }
+interface ReportManifest {
+  functions: ReportManifestEntry[];
+}
+
+interface ReportManifestEntry {
+  name: string;
+  mainJsonPath: string;
+  historyJsonPaths: string[];
 }
 
 /**
@@ -22,7 +23,12 @@ declare global {
  */
 function validateBenchmarkData(data: BenchmarkDataMap): boolean {
   for (const [, funcData] of Object.entries(data)) {
-    if (funcData && typeof funcData === "object" && "meta" in funcData && "history" in funcData) {
+    if (
+      funcData &&
+      typeof funcData === "object" &&
+      "meta" in funcData &&
+      "history" in funcData
+    ) {
       return true;
     }
   }
@@ -30,24 +36,85 @@ function validateBenchmarkData(data: BenchmarkDataMap): boolean {
 }
 
 /**
- * 本番環境: Rustから注入されたグローバル変数からデータを読み込む
+ * ブラウザのfetchで安全に読めるよう、URLセグメント単位でエンコードする
+ */
+function encodeRelativePath(path: string): string {
+  return path
+    .split("/")
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
+/**
+ * JSONファイルを読み込む。読み込み失敗時は null を返す
+ */
+async function fetchJson<T>(relativePath: string): Promise<T | null> {
+  const encodedPath = encodeRelativePath(relativePath);
+
+  try {
+    const response = await fetch(`./${encodedPath}`, { cache: "no-store" });
+    if (!response.ok) {
+      console.warn(`Failed to fetch: ${relativePath} (${response.status})`);
+      return null;
+    }
+    return (await response.json()) as T;
+  } catch (err) {
+    console.warn(`Failed to fetch: ${relativePath}`, err);
+    return null;
+  }
+}
+
+/**
+ * 本番環境: manifestを起点にフォルダ内JSONを動的に読み込む
  * @returns パースされたベンチマークデータ、またはエラー時は空オブジェクト
  */
-function loadProductionData(): BenchmarkDataMap {
-  try {
-    if (window.__TENBIN_DATA__ && typeof window.__TENBIN_DATA__ === "object") {
-      const data = window.__TENBIN_DATA__ as BenchmarkDataMap;
-      if (validateBenchmarkData(data)) {
-        return data;
-      }
-      console.warn("Injected data format is incorrect.");
-    } else {
-      console.warn("No benchmark data found in window.__TENBIN_DATA__.");
-    }
-  } catch (err) {
-    console.error("Failed to load injected benchmark data:", err);
+async function loadProductionData(): Promise<BenchmarkDataMap> {
+  const manifest = await fetchJson<ReportManifest>("report-manifest.json");
+  if (!manifest || !Array.isArray(manifest.functions)) {
+    console.warn("report-manifest.json is missing or malformed.");
+    return {};
   }
-  return {};
+
+  const parsedData: BenchmarkDataMap = {};
+
+  for (const entry of manifest.functions) {
+    if (!entry || typeof entry.name !== "string") {
+      continue;
+    }
+
+    const meta = await fetchJson<FuncMetadata>(entry.mainJsonPath);
+    const history = [] as BenchmarkDataMap[string]["history"];
+
+    for (const historyPath of entry.historyJsonPaths || []) {
+      const historyData =
+        await fetchJson<Record<string, BenchJsonReport>>(historyPath);
+      if (!historyData) {
+        continue;
+      }
+
+      const fileName = historyPath.split("/").pop() || historyPath;
+      history.push({ fileName, data: historyData });
+    }
+
+    history.sort((a, b) => b.fileName.localeCompare(a.fileName));
+
+    if (meta || history.length > 0) {
+      parsedData[entry.name] = {
+        meta: meta ?? null,
+        history,
+      };
+    }
+  }
+
+  if (
+    !validateBenchmarkData(parsedData) &&
+    Object.keys(parsedData).length > 0
+  ) {
+    console.warn("Loaded benchmark data format may be incomplete.");
+  }
+
+  return parsedData;
 }
 
 /**
@@ -85,7 +152,9 @@ function loadDevelopmentData(): BenchmarkDataMap {
 
   // UI表示用に、ファイル名（001_, 002_...）の降順（最新が先頭）でソート
   for (const funcName in parsedData) {
-    parsedData[funcName].history.sort((a, b) => b.fileName.localeCompare(a.fileName));
+    parsedData[funcName].history.sort((a, b) =>
+      b.fileName.localeCompare(a.fileName),
+    );
   }
 
   return parsedData;
@@ -95,9 +164,9 @@ function loadDevelopmentData(): BenchmarkDataMap {
  * 環境に応じて適切なデータロード方法でベンチマークデータを読み込む
  * @returns パースされたベンチマークデータ
  */
-export function loadBenchmarkData(): BenchmarkDataMap {
+export async function loadBenchmarkData(): Promise<BenchmarkDataMap> {
   if (import.meta.env.PROD) {
-    return loadProductionData();
+    return await loadProductionData();
   }
   return loadDevelopmentData();
 }

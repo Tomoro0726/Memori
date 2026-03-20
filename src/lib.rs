@@ -26,7 +26,7 @@
 //!    - `Bench::Scaling`: Tests algorithms against growing input sizes (`N`) to visualize Big-O complexity.
 //!    - `Bench::Instant`: Tests a representative workload repeatedly over time to track performance regressions (CodSpeed-like trend graphs).
 //! 3. **Beautiful CLI DX**: Built-in, dependency-free progress animations (`\r` rewriting) to keep you informed during heavy stress tests.
-//! 4. **Standalone HTML Viewer**: Generates a rich, interactive dashboard (`report.html`) containing all historical data, viewable instantly in any browser without Node.js or local servers.
+//! 4. **Standalone HTML Viewer**: Generates a rich, interactive dashboard (`report.html`) and loads benchmark JSON from `target/tenbin/*` folders via a manifest, making history files easy to inspect and prune.
 //!
 //! <details>
 //! <summary>Japanese</summary>
@@ -38,7 +38,7 @@
 //!    - `Bench::Scaling`: 入力サイズ(`N`)を増大させながらテストし、Big-O記法的な計算量の推移を可視化します。
 //!    - `Bench::Instant`: 代表的なワークロードを継続的にテストし、パフォーマンスの悪化（リグレッション）をトレンドグラフとして追跡します。
 //! 3. **美しいCLI体験**: 依存関係なしの組み込みプログレスアニメーションにより、重いストレステスト中も進捗を美しく表示します。
-//! 4. **スタンドアロンHTMLビューワー**: 過去の全履歴データを内包したリッチなダッシュボード(`report.html`)を生成し、サーバー不要でブラウザですぐに分析できます。
+//! 4. **スタンドアロンHTMLビューワー**: リッチなダッシュボード(`report.html`)を生成し、`target/tenbin/*` 配下のJSONをmanifest経由で読み込むため、履歴ファイルを人手で整理しやすくなります。
 //! </details>
 //!
 //! ## Quick Start

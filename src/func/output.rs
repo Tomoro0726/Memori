@@ -73,6 +73,20 @@ pub struct PatternMetadata {
     pub pattern_type: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReportManifest {
+    functions: Vec<FunctionDataManifest>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FunctionDataManifest {
+    name: String,
+    main_json_path: String,
+    history_json_paths: Vec<String>,
+}
+
 impl<I> Func<I>
 where
     I: Clone + serde::Serialize + std::fmt::Display + 'static, // 表示用に Display を追加
@@ -86,7 +100,8 @@ where
     ///
     /// 【公開API】リッチなCLIプログレスアニメーションと共にすべてのベンチマークを実行し、
     /// 結果を自動的に `target/tenbin` ディレクトリ以下にJSONファイルとして保存します。
-    /// さらに、すべてのベンチマーク結果を集約したマスター `report.html` を `target/tenbin` 直下に生成します。
+    /// さらに、`target/tenbin/report.html` と `target/tenbin/report-manifest.json` を生成します。
+    /// HTML本体には結果を埋め込まず、ビューアーはフォルダ内のJSONをmanifest経由で参照します。
     /// </details>
     pub fn run_and_save(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let base_path = PathBuf::from("target/tenbin").join(&self.name);
@@ -273,15 +288,16 @@ where
             .unwrap_or(1)
     }
 
-    /// Generates the master report.html in `target/tenbin` that aggregates all benchmarks.
-    /// This allows users to access all benchmark results from a single HTML file.
+    /// Generates `report.html` and `report-manifest.json` in `target/tenbin`.
+    ///
+    /// `report.html` keeps only the viewer shell, while `report-manifest.json` stores
+    /// relative JSON paths that the viewer loads at runtime.
     ///
     /// <details>
     /// <summary>Japanese</summary>
     ///
-    /// 【内部API】`target/tenbin` 直下にマスター report.html を生成し、
-    /// すべてのベンチマーク結果を集約します。
-    /// これにより、ユーザーは単一のHTMLファイルから全ベンチマークにアクセスできます。
+    /// 【内部API】`target/tenbin` 直下に `report.html` と `report-manifest.json` を生成します。
+    /// HTMLにはデータ本体を埋め込まず、manifestにある相対パス経由でフォルダ内JSONを読み込みます。
     /// </details>
     fn generate_master_report() -> Result<(), Box<dyn std::error::Error>> {
         let tenbin_root = PathBuf::from("target/tenbin");
@@ -292,7 +308,7 @@ where
         }
 
         let html_template = include_str!("../../viewer/dist/index.html");
-        let mut master_data = BTreeMap::new();
+        let mut function_manifests = Vec::new();
 
         // target/tenbin 直下のすべてのディレクトリを走査
         if let Ok(entries) = fs::read_dir(&tenbin_root) {
@@ -307,18 +323,8 @@ where
                     None => continue,
                 };
 
-                // main.json を読み込み
                 let main_json_path = path.join("main.json");
-                let meta = if main_json_path.exists() {
-                    match fs::read_to_string(&main_json_path) {
-                        Ok(content) => serde_json::from_str::<FuncMetadata>(&content).ok(),
-                        Err(_) => None,
-                    }
-                } else {
-                    None
-                };
-
-                let mut history_list = Vec::new();
+                let mut history_paths = Vec::new();
 
                 // 該当ディレクトリ内のすべてのJSONファイルを読み込む
                 if let Ok(files) = fs::read_dir(&path) {
@@ -330,44 +336,50 @@ where
                         let file_name = entry.file_name().to_string_lossy().to_string();
                         if file_name == "main.json"
                             || file_name == "report.html"
+                            || file_name == "report-manifest.json"
                             || !file_name.ends_with(".json")
                         {
                             continue;
                         }
 
-                        if let Ok(content) = fs::read_to_string(entry.path()) {
-                            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&content)
-                            {
-                                history_list.push(serde_json::json!({
-                                    "fileName": file_name,
-                                    "data": parsed
-                                }));
-                            }
-                        }
+                        history_paths.push(file_name);
                     }
                 }
 
-                master_data.insert(
-                    func_name,
-                    serde_json::json!({
-                        "meta": meta,
-                        "history": history_list
-                    }),
-                );
+                if !main_json_path.exists() && history_paths.is_empty() {
+                    continue;
+                }
+
+                let history_json_paths = history_paths
+                    .into_iter()
+                    .map(|file_name| format!("{}/{}", func_name, file_name))
+                    .collect();
+
+                function_manifests.push(FunctionDataManifest {
+                    name: func_name.clone(),
+                    main_json_path: format!("{}/main.json", func_name),
+                    history_json_paths,
+                });
             }
         }
 
-        // マスターデータをJSON化
-        let injected_json = serde_json::to_string(&master_data)?;
+        function_manifests.sort_by(|a, b| a.name.cmp(&b.name));
 
-        // HTMLテンプレートにデータを注入
-        let final_html = html_template.replace("null; /* TENBIN_INJECT_DATA */", &injected_json);
+        let manifest = ReportManifest {
+            functions: function_manifests,
+        };
 
-        // target/tenbin/report.html として書き出し
-        fs::write(tenbin_root.join("report.html"), final_html)?;
+        fs::write(tenbin_root.join("report.html"), html_template)?;
+        fs::write(
+            tenbin_root.join("report-manifest.json"),
+            serde_json::to_string_pretty(&manifest)?,
+        )?;
 
         println!("📊 マスターレポートを生成しました:");
         if let Ok(abs_path) = tenbin_root.join("report.html").canonicalize() {
+            println!("   file://{}", abs_path.display());
+        }
+        if let Ok(abs_path) = tenbin_root.join("report-manifest.json").canonicalize() {
             println!("   file://{}", abs_path.display());
         }
 
