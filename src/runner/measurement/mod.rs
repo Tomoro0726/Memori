@@ -125,6 +125,8 @@ pub struct Measurement {
     /// OSに対して解放したヒープメモリの総量（バイト数）。
     /// </details>
     pub dealloc_bytes: usize,
+    /// Net memory increase (allocBytes - deallocBytes) for JSON output
+    pub net_bytes: isize,
 }
 
 impl Measurement {
@@ -152,6 +154,7 @@ impl Measurement {
             alloc_bytes,
             dealloc_count,
             dealloc_bytes,
+            net_bytes: (alloc_bytes as isize) - (dealloc_bytes as isize),
         }
     }
 

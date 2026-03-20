@@ -1,5 +1,4 @@
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
 thread_local! {

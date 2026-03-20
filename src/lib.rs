@@ -114,4 +114,3 @@ pub use func::output::FuncMetadata;
 pub use func::output::PatternMetadata;
 
 // Low-level Global Counters (Exported in case users need direct access)
-pub use allocator::{ALLOC_BYTES, ALLOC_COUNT, DEALLOC_BYTES, DEALLOC_COUNT};

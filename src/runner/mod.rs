@@ -134,17 +134,17 @@ where
             // ...existing code...
         }
 
-        let start_allocs = crate::ALLOC_COUNT.load(Ordering::SeqCst);
-        let start_bytes = crate::ALLOC_BYTES.load(Ordering::SeqCst);
-        let start_deallocs = crate::DEALLOC_COUNT.load(Ordering::SeqCst);
-        let start_dealloc_bytes = crate::DEALLOC_BYTES.load(Ordering::SeqCst);
+        let start_allocs = crate::allocator::THREAD_ALLOC_COUNT.with(|c| c.get());
+        let start_bytes = crate::allocator::THREAD_ALLOC_BYTES.with(|c| c.get());
+        let start_deallocs = crate::allocator::THREAD_DEALLOC_COUNT.with(|c| c.get());
+        let start_dealloc_bytes = crate::allocator::THREAD_DEALLOC_BYTES.with(|c| c.get());
 
         std::hint::black_box((self.function)(&self.input));
 
-        let end_allocs = crate::ALLOC_COUNT.load(Ordering::SeqCst);
-        let end_bytes = crate::ALLOC_BYTES.load(Ordering::SeqCst);
-        let end_deallocs = crate::DEALLOC_COUNT.load(Ordering::SeqCst);
-        let end_dealloc_bytes = crate::DEALLOC_BYTES.load(Ordering::SeqCst);
+        let end_allocs = crate::allocator::THREAD_ALLOC_COUNT.with(|c| c.get());
+        let end_bytes = crate::allocator::THREAD_ALLOC_BYTES.with(|c| c.get());
+        let end_deallocs = crate::allocator::THREAD_DEALLOC_COUNT.with(|c| c.get());
+        let end_dealloc_bytes = crate::allocator::THREAD_DEALLOC_BYTES.with(|c| c.get());
 
         let final_cycles = if min_perf_cycles != u64::MAX {
             min_perf_cycles
@@ -212,17 +212,17 @@ where
             }
         }
 
-        let start_allocs = crate::ALLOC_COUNT.load(Ordering::SeqCst);
-        let start_bytes = crate::ALLOC_BYTES.load(Ordering::SeqCst);
-        let start_deallocs = crate::DEALLOC_COUNT.load(Ordering::SeqCst);
-        let start_dealloc_bytes = crate::DEALLOC_BYTES.load(Ordering::SeqCst);
+        let start_allocs = crate::allocator::THREAD_ALLOC_COUNT.with(|c| c.get());
+        let start_bytes = crate::allocator::THREAD_ALLOC_BYTES.with(|c| c.get());
+        let start_deallocs = crate::allocator::THREAD_DEALLOC_COUNT.with(|c| c.get());
+        let start_dealloc_bytes = crate::allocator::THREAD_DEALLOC_BYTES.with(|c| c.get());
 
         std::hint::black_box((self.function)(&self.input));
 
-        let end_allocs = crate::ALLOC_COUNT.load(Ordering::SeqCst);
-        let end_bytes = crate::ALLOC_BYTES.load(Ordering::SeqCst);
-        let end_deallocs = crate::DEALLOC_COUNT.load(Ordering::SeqCst);
-        let end_dealloc_bytes = crate::DEALLOC_BYTES.load(Ordering::SeqCst);
+        let end_allocs = crate::allocator::THREAD_ALLOC_COUNT.with(|c| c.get());
+        let end_bytes = crate::allocator::THREAD_ALLOC_BYTES.with(|c| c.get());
+        let end_deallocs = crate::allocator::THREAD_DEALLOC_COUNT.with(|c| c.get());
+        let end_dealloc_bytes = crate::allocator::THREAD_DEALLOC_BYTES.with(|c| c.get());
 
         Measurement::new(
             if min_cycles == u64::MAX {

@@ -18,6 +18,11 @@ const PARAMETERS = [
     key: "netBytes",
     desc: "正味のメモリ増加量（allocBytes - deallocBytes）。",
   },
+  { key: "deallocCount", desc: "関数実行中のメモリ解放回数。" },
+  {
+    key: "netBytes",
+    desc: "正味のメモリ増加量（allocBytes - deallocBytes）。Rust側で計算済み。",
+  },
 ];
 
 const ENV_DIFFS = [

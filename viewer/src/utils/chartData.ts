@@ -5,7 +5,13 @@
  * グラフ表示用の形式に変換するロジック
  */
 
-import type { BenchJsonEntry, BenchmarkDataMap, ChartState, LineInfo, MetricKey } from "../types";
+import type {
+  BenchJsonEntry,
+  BenchmarkDataMap,
+  ChartState,
+  LineInfo,
+  MetricKey,
+} from "../types";
 
 type ChartDataPoint = Record<string, unknown>;
 
@@ -24,7 +30,7 @@ function addLineInfoIfNew(
   key: string,
   algoName: string,
   runLabel: string,
-  runIndex: number
+  runIndex: number,
 ): void {
   if (!addedLineKeys.has(key)) {
     addedLineKeys.add(key);
@@ -43,16 +49,20 @@ function addInstantMetricToPoint(
   algoName: string,
   entries: BenchJsonEntry[],
   selectedMetric: MetricKey | string,
-  dataPoint: ChartDataPoint
+  dataPoint: ChartDataPoint,
 ): void {
   if (entries.length === 0) return;
   let value: unknown;
-  if (selectedMetric === "netBytes") {
-    const alloc = entries[0].measurement.allocBytes ?? 0;
-    const dealloc = entries[0].measurement.deallocBytes ?? 0;
-    value = alloc - dealloc;
-  } else if (
-    ["cycles", "timeNs", "allocCount", "allocBytes", "deallocBytes"].includes(selectedMetric)
+  if (
+    [
+      "cycles",
+      "timeNs",
+      "allocCount",
+      "allocBytes",
+      "deallocCount",
+      "deallocBytes",
+      "netBytes",
+    ].includes(selectedMetric)
   ) {
     value = entries[0].measurement[selectedMetric as MetricKey];
   }
@@ -72,17 +82,11 @@ function addScalingMetricsToMap(
   entries: BenchJsonEntry[],
   selectedMetric: MetricKey | "netBytes",
   lineKey: string,
-  mergedMap: Map<number | string, ChartDataPoint>
+  mergedMap: Map<number | string, ChartDataPoint>,
 ): void {
   for (const entry of entries) {
     let value: unknown;
-    if (selectedMetric === "netBytes") {
-      const alloc = entry.measurement.allocBytes ?? 0;
-      const dealloc = entry.measurement.deallocBytes ?? 0;
-      value = alloc - dealloc;
-    } else {
-      value = entry.measurement[selectedMetric];
-    }
+    value = entry.measurement[selectedMetric as MetricKey];
     if (value === null || value === undefined) continue;
 
     if (!mergedMap.has(entry.input)) {
@@ -115,7 +119,7 @@ function processInstantPatternRun(
   selectedMetric: MetricKey | string,
   dataMap: Map<number, ChartDataPoint>,
   lineInfos: LineInfo[],
-  addedLineKeys: Set<string>
+  addedLineKeys: Set<string>,
 ): string {
   const runNum = run.fileName.split("_")[0];
   const isLatest = index === targetRunsLength - 1;
@@ -150,7 +154,7 @@ export function processInstantPattern(
   funcData: BenchmarkDataMap[string],
   selectedPattern: string,
   selectedMetric: MetricKey,
-  metricLabels: Map<MetricKey, string>
+  metricLabels: Map<MetricKey, string>,
 ): ChartState {
   const targetRuns = [...funcData.history].reverse();
   const trendMap = new Map<number, ChartDataPoint>();
@@ -167,7 +171,7 @@ export function processInstantPattern(
       selectedMetric,
       trendMap,
       lineInfos,
-      addedLineKeys
+      addedLineKeys,
     );
     if (desc) currentPatternDesc = desc;
   }
@@ -204,7 +208,7 @@ function processScalingPatternRun(
   isSingleRun: boolean,
   mergedMap: Map<number | string, ChartDataPoint>,
   lineInfos: LineInfo[],
-  addedLineKeys: Set<string>
+  addedLineKeys: Set<string>,
 ): string {
   const runNum = run.fileName.replace(/\.json$/i, "").split("_")[0];
   const runLabel = index === 0 ? "Latest" : `Run-${runNum}`;
@@ -214,7 +218,14 @@ function processScalingPatternRun(
 
   for (const [algoName, entries] of Object.entries(patternData.results)) {
     const lineKey = isSingleRun ? algoName : `${algoName} (${runLabel})`;
-    addLineInfoIfNew(lineInfos, addedLineKeys, lineKey, algoName, runLabel, index);
+    addLineInfoIfNew(
+      lineInfos,
+      addedLineKeys,
+      lineKey,
+      algoName,
+      runLabel,
+      index,
+    );
     addScalingMetricsToMap(entries, selectedMetric, lineKey, mergedMap);
   }
 
@@ -235,18 +246,18 @@ export function processScalingPattern(
   selectedPattern: string,
   selectedMetric: MetricKey,
   selectedRuns: number[],
-  metricLabels: Map<MetricKey, string>
+  metricLabels: Map<MetricKey, string>,
 ): ChartState {
   const runIndices = selectedRuns.length > 0 ? selectedRuns : [0];
   const targetRuns = runIndices
     .map((runIndex) => ({ runIndex, run: funcData.history[runIndex] }))
     .filter(
       (
-        entry
+        entry,
       ): entry is {
         runIndex: number;
         run: BenchmarkDataMap[string]["history"][number];
-      } => !!entry.run
+      } => !!entry.run,
     );
 
   const mergedMap = new Map<number | string, ChartDataPoint>();
@@ -263,7 +274,7 @@ export function processScalingPattern(
       targetRuns.length === 1,
       mergedMap,
       lineInfos,
-      addedLineKeys
+      addedLineKeys,
     );
     if (desc) currentPatternDesc = desc;
   }
