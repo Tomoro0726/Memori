@@ -32,7 +32,7 @@ jobs:
       - name: Restore benchmark history
         run: |
           mkdir -p target/memori
-          if [ -d "gh-pages-branch" ]; then
+          if [ -d "gh-pages-branch/Memori" ]; then
             rsync -a --exclude='.git' gh-pages-branch/Memori/ target/memori/
           fi
 
