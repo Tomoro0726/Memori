@@ -11,13 +11,6 @@ fn main() {
 
     let viewer_dir = Path::new("viewer");
 
-    // 2. viewerディレクトリが存在しない場合は何もしない（超重要）
-    // ※クレートとして crates.io に公開した際、エンドユーザーの環境で
-    // bun のインストールを要求してエラーになるのを防ぐための安全対策です。
-    if !viewer_dir.join("package.json").exists() {
-        return;
-    }
-
     // bun のパスを複数試す
     let bun_executables = if cfg!(target_os = "windows") {
         vec![
@@ -60,6 +53,6 @@ fn main() {
 
     // ビルドに失敗した場合はRustのコンパイルも止める
     if !status.success() {
-        panic!("❌ フロントエンド (viewer) のビルドに失敗しました。");
+        panic!("フロントエンド (viewer) のビルドに失敗しました。");
     }
 }
