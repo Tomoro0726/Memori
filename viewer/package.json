@@ -38,9 +38,6 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json}": "biome format --write",
-    "*.{ts,tsx}": [
-      "biome check --apply",
-      "tsc --noEmit"
-    ]
+    "*.{ts,tsx}": ["biome check --apply", "tsc --noEmit"]
   }
 }

@@ -31,7 +31,7 @@ function addLineInfoIfNew(
   key: string,
   algoName: string,
   runLabel: string,
-  runIndex: number,
+  runIndex: number
 ): void {
   if (!addedLineKeys.has(key)) {
     addedLineKeys.add(key);
@@ -43,7 +43,7 @@ function addInstantMetricToPoint(
   algoName: string,
   entries: BenchJsonEntry[],
   selectedMetric: MetricKey,
-  dataPoint: ChartDataPoint,
+  dataPoint: ChartDataPoint
 ): void {
   if (entries.length === 0) return;
   const value = entries[0].measurement[selectedMetric];
@@ -60,7 +60,7 @@ function processInstantPatternRun(
   selectedMetric: MetricKey,
   dataMap: Map<number, ChartDataPoint>,
   lineInfos: LineInfo[],
-  addedLineKeys: Set<string>,
+  addedLineKeys: Set<string>
 ): string {
   const runNum = run.fileName.split("_")[0];
   const isLatest = index === targetRunsLength - 1;
@@ -86,7 +86,7 @@ function processInstantPatternRun(
 function processInstantPattern(
   funcData: (typeof parsedData)[string],
   selectedPattern: string,
-  selectedMetric: MetricKey,
+  selectedMetric: MetricKey
 ): ChartState {
   const targetRuns = [...funcData.history].reverse();
   const trendMap = new Map<number, ChartDataPoint>();
@@ -103,7 +103,7 @@ function processInstantPattern(
       selectedMetric,
       trendMap,
       lineInfos,
-      addedLineKeys,
+      addedLineKeys
     );
     if (desc) currentPatternDesc = desc;
   }
@@ -115,8 +115,7 @@ function processInstantPattern(
     lines: lineInfos,
     chartTitle: `${selectedPattern} - Trend History`,
     chartDesc: currentPatternDesc || "CodSpeed style performance history.",
-    yAxisLabel:
-      METRICS.find((m) => m.key === selectedMetric)?.label || selectedMetric,
+    yAxisLabel: METRICS.find((m) => m.key === selectedMetric)?.label || selectedMetric,
     xAxisKey: "run",
     xAxisLabel: "History (Runs)",
   };
@@ -126,7 +125,7 @@ function addScalingMetricsToMap(
   entries: BenchJsonEntry[],
   selectedMetric: MetricKey,
   lineKey: string,
-  mergedMap: Map<number, Record<string, number>>,
+  mergedMap: Map<number, Record<string, number>>
 ): void {
   for (const entry of entries) {
     const value = entry.measurement[selectedMetric];
@@ -150,7 +149,7 @@ function processScalingPatternRun(
   historyCount: number,
   mergedMap: Map<number, Record<string, number>>,
   lineInfos: LineInfo[],
-  addedLineKeys: Set<string>,
+  addedLineKeys: Set<string>
 ): string {
   const runLabel = index === 0 ? "Latest" : `Run-${run.fileName.split("_")[0]}`;
   const patternData = run.data[selectedPattern];
@@ -159,14 +158,7 @@ function processScalingPatternRun(
 
   for (const [algoName, entries] of Object.entries(patternData.results)) {
     const lineKey = historyCount === 1 ? algoName : `${algoName} (${runLabel})`;
-    addLineInfoIfNew(
-      lineInfos,
-      addedLineKeys,
-      lineKey,
-      algoName,
-      runLabel,
-      index,
-    );
+    addLineInfoIfNew(lineInfos, addedLineKeys, lineKey, algoName, runLabel, index);
     addScalingMetricsToMap(entries, selectedMetric, lineKey, mergedMap);
   }
 
@@ -177,7 +169,7 @@ function processScalingPattern(
   funcData: (typeof parsedData)[string],
   selectedPattern: string,
   selectedMetric: MetricKey,
-  historyCount: number,
+  historyCount: number
 ): ChartState {
   const targetRuns = funcData.history.slice(0, historyCount);
   const mergedMap = new Map<number, Record<string, number>>();
@@ -194,13 +186,13 @@ function processScalingPattern(
       historyCount,
       mergedMap,
       lineInfos,
-      addedLineKeys,
+      addedLineKeys
     );
     if (desc) currentPatternDesc = desc;
   }
 
   const finalData = Array.from(mergedMap.values()).sort(
-    (a, b) => (a.input as number) - (b.input as number),
+    (a, b) => (a.input as number) - (b.input as number)
   );
 
   return {
@@ -208,8 +200,7 @@ function processScalingPattern(
     lines: lineInfos,
     chartTitle: `${selectedPattern} - ${METRICS.find((m) => m.key === selectedMetric)?.label}`,
     chartDesc: currentPatternDesc,
-    yAxisLabel:
-      METRICS.find((m) => m.key === selectedMetric)?.label || selectedMetric,
+    yAxisLabel: METRICS.find((m) => m.key === selectedMetric)?.label || selectedMetric,
     xAxisKey: "input",
     xAxisLabel: "N (Input Size)",
   };
@@ -224,9 +215,7 @@ export default function App() {
   const [historyCount, setHistoryCount] = useState<number>(1);
 
   const currentMeta = parsedData[selectedFunc]?.meta;
-  const currentPatternMeta = currentMeta?.patterns.find(
-    (p) => p.name === selectedPattern,
-  );
+  const currentPatternMeta = currentMeta?.patterns.find((p) => p.name === selectedPattern);
   const isInstant = currentPatternMeta?.patternType === "instant";
 
   useMemo(() => {
@@ -238,45 +227,29 @@ export default function App() {
     }
   }, [selectedFunc]);
 
-  const {
-    chartData,
-    lines,
-    chartTitle,
-    chartDesc,
-    yAxisLabel,
-    xAxisKey,
-    xAxisLabel,
-  } = useMemo(() => {
-    if (!selectedFunc || !selectedPattern) {
-      return {
-        chartData: [],
-        lines: [],
-        chartTitle: "",
-        chartDesc: "",
-        yAxisLabel: "",
-        xAxisKey: "",
-        xAxisLabel: "",
-      };
-    }
+  const { chartData, lines, chartTitle, chartDesc, yAxisLabel, xAxisKey, xAxisLabel } =
+    useMemo(() => {
+      if (!selectedFunc || !selectedPattern) {
+        return {
+          chartData: [],
+          lines: [],
+          chartTitle: "",
+          chartDesc: "",
+          yAxisLabel: "",
+          xAxisKey: "",
+          xAxisLabel: "",
+        };
+      }
 
-    const funcData = parsedData[selectedFunc];
-    if (isInstant) {
-      return processInstantPattern(funcData, selectedPattern, selectedMetric);
-    }
-    return processScalingPattern(
-      funcData,
-      selectedPattern,
-      selectedMetric,
-      historyCount,
-    );
-  }, [selectedFunc, selectedPattern, selectedMetric, historyCount, isInstant]);
+      const funcData = parsedData[selectedFunc];
+      if (isInstant) {
+        return processInstantPattern(funcData, selectedPattern, selectedMetric);
+      }
+      return processScalingPattern(funcData, selectedPattern, selectedMetric, historyCount);
+    }, [selectedFunc, selectedPattern, selectedMetric, historyCount, isInstant]);
 
   if (functions.length === 0) {
-    return (
-      <div className={styles.page}>
-        No benchmark data found. Run Tenbin tests first!
-      </div>
-    );
+    return <div className={styles.page}>No benchmark data found. Run Tenbin tests first!</div>;
   }
 
   return (
@@ -381,9 +354,7 @@ export default function App() {
               xAxisLabel={xAxisLabel}
             />
           ) : (
-            <div className="text-gray-500 text-center py-10">
-              Select a pattern to view data.
-            </div>
+            <div className="text-gray-500 text-center py-10">Select a pattern to view data.</div>
           )}
         </main>
       </div>
