@@ -18,12 +18,38 @@ fn main() {
         return;
     }
 
-    // Windows環境ではコマンド名が異なるための対応
-    let bun_cmd = if cfg!(target_os = "windows") {
-        "bun.cmd"
+    // bun のパスを複数試す
+    let bun_executables = if cfg!(target_os = "windows") {
+        vec![
+            "bun.cmd".to_string(),
+            "bun".to_string(),
+            format!(
+                "{}/.bun/bin/bun.exe",
+                std::env::var("USERPROFILE").unwrap_or_default()
+            ),
+        ]
     } else {
-        "bun"
+        vec!["bun".to_string()]
     };
+
+    let mut bun_found = false;
+    let mut bun_cmd = "bun";
+
+    // 最初に利用可能な bun を探す
+    for candidate in &bun_executables {
+        let status = Command::new(candidate).arg("--version").status();
+        if status.is_ok() {
+            bun_found = true;
+            bun_cmd = candidate;
+            break;
+        }
+    }
+
+    if !bun_found {
+        println!("⚠️  Warning: 'bun' command not found. Skipping viewer build.");
+        println!("    Install bun from https://bun.sh to build the viewer.");
+        return;
+    }
 
     // 3. 実際に `bun run build` を実行する
     let status = Command::new(bun_cmd)

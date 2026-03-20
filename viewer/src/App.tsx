@@ -18,7 +18,7 @@ export default function App() {
 
   const [selectedFunc, setSelectedFunc] = useState<string>(functions[0] || "");
   const [selectedPattern, setSelectedPattern] = useState<string>("");
-  const [selectedMetric, setSelectedMetric] = useState<MetricKey>("timeNs");
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey>("cycles");
   const [historyCount, setHistoryCount] = useState<number>(1);
 
   const currentMeta = parsedData[selectedFunc]?.meta;

@@ -78,15 +78,15 @@ where
     I: Clone + serde::Serialize + std::fmt::Display + 'static, // 表示用に Display を追加
 {
     /// Executes the full matrix of benchmarks with a rich CLI progress animation and
-    /// automatically saves the results as JSON files, alongside a standalone `report.html`
-    /// viewer in the `target/tenbin` directory.
+    /// automatically saves the results as JSON files in the `target/tenbin` directory.
+    /// Generates a master `report.html` that aggregates all benchmarks.
     ///
     /// <details>
     /// <summary>Japanese</summary>
     ///
     /// 【公開API】リッチなCLIプログレスアニメーションと共にすべてのベンチマークを実行し、
     /// 結果を自動的に `target/tenbin` ディレクトリ以下にJSONファイルとして保存します。
-    /// さらに、ブラウザですぐに確認できるスタンドアロンの `report.html` も同時生成します。
+    /// さらに、すべてのベンチマーク結果を集約したマスター `report.html` を `target/tenbin` 直下に生成します。
     /// </details>
     pub fn run_and_save(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let base_path = PathBuf::from("target/tenbin").join(&self.name);
@@ -104,91 +104,10 @@ where
         let json_data = serde_json::to_string_pretty(&report_map)?;
         fs::write(history_path, json_data)?;
 
-        // 2. React Viewer (単一HTML) の出力処理
-        self.generate_html_report(&base_path)?;
-
         println!("✨ すべての計測が完了し、{} に保存されました。", self.name);
 
-        // canonicalize() で絶対パスを取得してクリッカブルなリンクにする
-        if let Ok(abs_path) = base_path.join("report.html").canonicalize() {
-            println!("📊 レポートを見るには、以下をブラウザで開いてください:");
-            println!("   file://{}", abs_path.display());
-        }
-
-        Ok(())
-    }
-
-    /// Reads all historical JSON data and injects it into the pre-built React HTML template,
-    /// generating a zero-dependency standalone `report.html`.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    ///
-    /// 【内部API】過去の全履歴JSONデータを読み込み、事前ビルドされたReactのHTMLテンプレートに注入して、
-    /// 依存関係ゼロのスタンドアロンな `report.html` を生成します。
-    /// </details>
-    fn generate_html_report(&self, base_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-        // 開発者が事前にビルドしたReactのHTMLをバイナリに埋め込む
-        // ※ viewer/dist/index.html の相対パスはディレクトリ構造に合わせて調整してください
-        let html_template = include_str!("../../viewer/dist/index.html");
-
-        let mut app_data = BTreeMap::new();
-        let mut history_list = Vec::new();
-
-        // ディレクトリ内のすべての .json ファイルを読み込む
-        if let Ok(entries) = fs::read_dir(base_path) {
-            let mut files: Vec<_> = entries.filter_map(|e| e.ok()).collect();
-            // 降順（新しい順）にソート
-            files.sort_by_key(|a| std::cmp::Reverse(a.file_name()));
-
-            for entry in files {
-                let file_name = entry.file_name().to_string_lossy().to_string();
-                if file_name == "main.json"
-                    || file_name == "report.html"
-                    || !file_name.ends_with(".json")
-                {
-                    continue;
-                }
-
-                let content = fs::read_to_string(entry.path())?;
-                let parsed: serde_json::Value = serde_json::from_str(&content)?;
-
-                // HistoryRun の形式に合わせてプッシュ
-                history_list.push(serde_json::json!({
-                    "fileName": file_name,
-                    "data": parsed
-                }));
-            }
-        }
-
-        // main.json を読み込んでメタデータとして扱う
-        let main_json_path = base_path.join("main.json");
-        let meta = if main_json_path.exists() {
-            let content = fs::read_to_string(main_json_path)?;
-            serde_json::from_str::<FuncMetadata>(&content).ok()
-        } else {
-            None
-        };
-
-        app_data.insert(
-            self.name.clone(),
-            serde_json::json!({
-                "meta": meta,
-                "history": history_list
-            }),
-        );
-
-        // データをJSON文字列化
-        let injected_json = serde_json::to_string(&app_data)?;
-
-        // HTML内のプレースホルダーを、JSONデータで置換
-        let final_html = html_template.replace(
-            "null; /* TENBIN_INJECT_DATA */",
-            &format!("{};", injected_json),
-        );
-
-        // report.html として書き出し
-        fs::write(base_path.join("report.html"), final_html)?;
+        // 2. マスター report.html を生成（target/tenbin 直下）
+        Self::generate_master_report()?;
 
         Ok(())
     }
@@ -352,5 +271,106 @@ where
                     + 1
             })
             .unwrap_or(1)
+    }
+
+    /// Generates the master report.html in `target/tenbin` that aggregates all benchmarks.
+    /// This allows users to access all benchmark results from a single HTML file.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    ///
+    /// 【内部API】`target/tenbin` 直下にマスター report.html を生成し、
+    /// すべてのベンチマーク結果を集約します。
+    /// これにより、ユーザーは単一のHTMLファイルから全ベンチマークにアクセスできます。
+    /// </details>
+    fn generate_master_report() -> Result<(), Box<dyn std::error::Error>> {
+        let tenbin_root = PathBuf::from("target/tenbin");
+
+        // target/tenbin が存在します確認
+        if !tenbin_root.exists() {
+            return Ok(());
+        }
+
+        let html_template = include_str!("../../viewer/dist/index.html");
+        let mut master_data = BTreeMap::new();
+
+        // target/tenbin 直下のすべてのディレクトリを走査
+        if let Ok(entries) = fs::read_dir(&tenbin_root) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_dir() {
+                    continue;
+                }
+
+                let func_name = match path.file_name() {
+                    Some(name) => name.to_string_lossy().to_string(),
+                    None => continue,
+                };
+
+                // main.json を読み込み
+                let main_json_path = path.join("main.json");
+                let meta = if main_json_path.exists() {
+                    match fs::read_to_string(&main_json_path) {
+                        Ok(content) => serde_json::from_str::<FuncMetadata>(&content).ok(),
+                        Err(_) => None,
+                    }
+                } else {
+                    None
+                };
+
+                let mut history_list = Vec::new();
+
+                // 該当ディレクトリ内のすべてのJSONファイルを読み込む
+                if let Ok(files) = fs::read_dir(&path) {
+                    let mut file_entries: Vec<_> = files.filter_map(|e| e.ok()).collect();
+                    // 降順（新しい順）にソート
+                    file_entries.sort_by_key(|a| std::cmp::Reverse(a.file_name()));
+
+                    for entry in file_entries {
+                        let file_name = entry.file_name().to_string_lossy().to_string();
+                        if file_name == "main.json"
+                            || file_name == "report.html"
+                            || !file_name.ends_with(".json")
+                        {
+                            continue;
+                        }
+
+                        if let Ok(content) = fs::read_to_string(entry.path()) {
+                            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&content)
+                            {
+                                history_list.push(serde_json::json!({
+                                    "fileName": file_name,
+                                    "data": parsed
+                                }));
+                            }
+                        }
+                    }
+                }
+
+                master_data.insert(
+                    func_name,
+                    serde_json::json!({
+                        "meta": meta,
+                        "history": history_list
+                    }),
+                );
+            }
+        }
+
+        // マスターデータをJSON化
+        let injected_json = serde_json::to_string(&master_data)?;
+
+        // HTMLテンプレートにデータを注入
+        let final_html = html_template.replace("null; /* TENBIN_INJECT_DATA */", &injected_json);
+
+        // target/tenbin/report.html として書き出し
+        fs::write(tenbin_root.join("report.html"), final_html)?;
+
+        println!("📊 マスターレポートを生成しました:");
+        if let Ok(abs_path) = tenbin_root.join("report.html").canonicalize() {
+            println!("   file://{}", abs_path.display());
+        }
+
+        Ok(())
     }
 }

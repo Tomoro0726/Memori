@@ -1,6 +1,3 @@
-use std::collections::BTreeMap;
-
-use crate::{BenchJsonEntry, BenchJsonReport, Runner};
 pub mod output;
 
 /// The input pattern for a benchmark.

@@ -3,19 +3,43 @@ import type { BenchmarkDataMap, FuncMetadata, BenchJsonReport } from "./types";
 // 本番環境でRustから注入されるグローバル変数の型定義
 declare global {
   interface Window {
-    __TENBIN_DATA__?: BenchmarkDataMap | null;
+    __TENBIN_DATA__?: Record<string, unknown> | null;
   }
 }
 
 export function loadBenchmarkData(): BenchmarkDataMap {
   // ＝＝＝ 本番環境（ビルド後）の処理 ＝＝＝
-  // Rustの `run_and_save` によって HTML の <head> に注入されたデータを読み取る
+  // Rustの `run_and_save` によって HTML の <script> タグに注入されたデータを読み取る
   if (import.meta.env.PROD) {
-    if (window.__TENBIN_DATA__) {
-      return window.__TENBIN_DATA__;
+    try {
+      if (
+        window.__TENBIN_DATA__ &&
+        typeof window.__TENBIN_DATA__ === "object"
+      ) {
+        // グローバル変数から直接データを取得
+        const data = window.__TENBIN_DATA__ as BenchmarkDataMap;
+
+        // データが正しい形式か（funcName をキーに ParsedFunctionData を値にしているか）検証
+        for (const [, funcData] of Object.entries(data)) {
+          if (
+            funcData &&
+            typeof funcData === "object" &&
+            "meta" in funcData &&
+            "history" in funcData
+          ) {
+            return data;
+          }
+        }
+
+        console.warn("Injected data format is incorrect.");
+        return {};
+      }
+      console.warn("No benchmark data found in window.__TENBIN_DATA__.");
+      return {};
+    } catch (err) {
+      console.error("Failed to load injected benchmark data:", err);
+      return {};
     }
-    console.warn("No benchmark data found in window.__TENBIN_DATA__.");
-    return {};
   }
 
   // ＝＝＝ 開発環境（npm run dev）の処理 ＝＝＝
