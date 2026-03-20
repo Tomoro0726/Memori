@@ -14,10 +14,7 @@ const PARAMETERS = [
   { key: "allocCount", desc: "関数実行中のメモリ割り当て回数。" },
   { key: "allocBytes", desc: "割り当てられたメモリ総量（バイト）。" },
   { key: "deallocBytes", desc: "解放されたメモリ総量（バイト）。" },
-  {
-    key: "netBytes",
-    desc: "正味のメモリ増加量（allocBytes - deallocBytes）。",
-  },
+  // ...existing code...
   { key: "deallocCount", desc: "関数実行中のメモリ解放回数。" },
   {
     key: "netBytes",

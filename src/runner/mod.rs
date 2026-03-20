@@ -50,7 +50,6 @@ where
             let _ = std::hint::black_box((self.function)(input));
         }
 
-        // Use independent counters to avoid data size mismatch panics in VM environments.
         let mut cycles_counter = {
             let mut b = Builder::new().kind(Hardware::CPU_CYCLES);
             b.exclude_kernel(true);
@@ -90,20 +89,8 @@ where
             #[cfg(feature = "real_time")]
             let start_time = std::time::Instant::now();
 
-            // メモリ計測: サンプリングループ内でTLS値を取得
-            let (s_alloc, s_bytes) = crate::allocator::THREAD_ALLOC_COUNT.with(|c| c.get());
-            let (s_dealloc, s_dealloc_bytes) =
-                crate::allocator::THREAD_DEALLOC_COUNT.with(|c| c.get());
             let input = std::hint::black_box(&self.input);
             let _ = std::hint::black_box((self.function)(input));
-            let (e_alloc, e_bytes) = crate::allocator::THREAD_ALLOC_COUNT.with(|c| c.get());
-            let (e_dealloc, e_dealloc_bytes) =
-                crate::allocator::THREAD_DEALLOC_COUNT.with(|c| c.get());
-
-            let alloc_count = e_alloc.wrapping_sub(s_alloc);
-            let alloc_bytes = e_bytes.wrapping_sub(s_bytes);
-            let dealloc_count = e_dealloc.wrapping_sub(s_dealloc);
-            let dealloc_bytes = e_dealloc_bytes.wrapping_sub(s_dealloc_bytes);
 
             #[cfg(feature = "real_time")]
             {
@@ -131,20 +118,26 @@ where
                     min_perf_cycles = min_perf_cycles.min(count);
                 }
             }
-            // ...existing code...
         }
 
-        let start_allocs = crate::allocator::THREAD_ALLOC_COUNT.with(|c| c.get());
-        let start_bytes = crate::allocator::THREAD_ALLOC_BYTES.with(|c| c.get());
-        let start_deallocs = crate::allocator::THREAD_DEALLOC_COUNT.with(|c| c.get());
-        let start_dealloc_bytes = crate::allocator::THREAD_DEALLOC_BYTES.with(|c| c.get());
+        // 最終計測用の走行
+        let s_alloc = crate::allocator::THREAD_ALLOC_COUNT.with(|c| c.get());
+        let s_bytes = crate::allocator::THREAD_ALLOC_BYTES.with(|c| c.get());
+        let s_dealloc = crate::allocator::THREAD_DEALLOC_COUNT.with(|c| c.get());
+        let s_dealloc_bytes = crate::allocator::THREAD_DEALLOC_BYTES.with(|c| c.get());
 
-        std::hint::black_box((self.function)(&self.input));
+        let input = std::hint::black_box(&self.input);
+        let _ = std::hint::black_box((self.function)(input));
 
-        let end_allocs = crate::allocator::THREAD_ALLOC_COUNT.with(|c| c.get());
-        let end_bytes = crate::allocator::THREAD_ALLOC_BYTES.with(|c| c.get());
-        let end_deallocs = crate::allocator::THREAD_DEALLOC_COUNT.with(|c| c.get());
-        let end_dealloc_bytes = crate::allocator::THREAD_DEALLOC_BYTES.with(|c| c.get());
+        let e_alloc = crate::allocator::THREAD_ALLOC_COUNT.with(|c| c.get());
+        let e_bytes = crate::allocator::THREAD_ALLOC_BYTES.with(|c| c.get());
+        let e_dealloc = crate::allocator::THREAD_DEALLOC_COUNT.with(|c| c.get());
+        let e_dealloc_bytes = crate::allocator::THREAD_DEALLOC_BYTES.with(|c| c.get());
+
+        let final_alloc_count = e_alloc.wrapping_sub(s_alloc);
+        let final_alloc_bytes = e_bytes.wrapping_sub(s_bytes);
+        let final_dealloc_count = e_dealloc.wrapping_sub(s_dealloc);
+        let final_dealloc_bytes = e_dealloc_bytes.wrapping_sub(s_dealloc_bytes);
 
         let final_cycles = if min_perf_cycles != u64::MAX {
             min_perf_cycles
@@ -165,10 +158,10 @@ where
             min_time_ns.or(Some(0)),
             #[cfg(not(feature = "real_time"))]
             None,
-            alloc_count as isize,
-            alloc_bytes as isize,
-            dealloc_count as isize,
-            dealloc_bytes as isize,
+            final_alloc_count,
+            final_alloc_bytes,
+            final_dealloc_count,
+            final_dealloc_bytes,
         )
     }
 

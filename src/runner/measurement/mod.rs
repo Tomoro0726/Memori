@@ -158,23 +158,6 @@ impl Measurement {
         }
     }
 
-    /// Calculates the "net memory increase" in bytes by subtracting the deallocated memory from the allocated memory.
-    ///
-    /// - **If the value is `0`**: All memory allocated within the function was cleanly freed.
-    /// - **If the value is `> 0`**: The function either returned the allocated data or a memory leak occurred.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    ///
-    /// 確保したメモリ量から解放したメモリ量を差し引いた「正味のメモリ増加量 (Net Memory)」をバイト単位で計算します。
-    ///
-    /// - **値が `0` の場合:** 関数内で確保されたメモリはすべて綺麗に解放されています。
-    /// - **値が `0` より大きい場合:** 関数がデータを返却したか、内部でメモリリークが発生しています。
-    /// </details>
-    pub fn net_bytes(&self) -> isize {
-        (self.alloc_bytes as isize) - (self.dealloc_bytes as isize)
-    }
-
     /// Calculates the net number of allocations (allocations minus deallocations).
     ///
     /// <details>
