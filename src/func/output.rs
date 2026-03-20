@@ -304,7 +304,7 @@ where
             return Ok(());
         }
 
-        let html_template = include_str!("../../viewer/dist/index.html");
+        let html_template = include_str!("../../../../../viewer/dist/index.html");
         let mut function_manifests = Vec::new();
         let mut embedded_data = BTreeMap::new();
 
