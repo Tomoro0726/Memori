@@ -10,6 +10,7 @@
     "check": "biome check --write .",
     "typecheck": "tsc -b --noEmit",
     "ci": "bun run format && bun run check && bun run typecheck",
+    "prepare": "node scripts/setup-hooks.js",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -37,9 +38,6 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json}": "biome format --write",
-    "*.{ts,tsx}": [
-      "biome check --apply",
-      "tsc --noEmit"
-    ]
+    "*.{ts,tsx}": ["biome check --apply", "tsc --noEmit"]
   }
 }

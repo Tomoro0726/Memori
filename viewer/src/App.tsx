@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import styles from "./App.module.css";
 import { BenchmarkChart } from "./components/BenchmarkChart/BenchmarkChart";
 import { loadBenchmarkData } from "./data";
-import type { LineInfo, MetricKey } from "./types";
+import type { BenchJsonEntry, LineInfo, MetricKey } from "./types";
 
 const parsedData = loadBenchmarkData();
 
@@ -12,6 +12,199 @@ const METRICS: { key: MetricKey; label: string }[] = [
   { key: "allocCount", label: "Allocations (Count)" },
   { key: "allocBytes", label: "Allocated Memory (Bytes)" },
 ];
+
+type ChartDataPoint = Record<string, unknown>;
+
+interface ChartState {
+  chartData: ChartDataPoint[];
+  lines: LineInfo[];
+  chartTitle: string;
+  chartDesc: string;
+  yAxisLabel: string;
+  xAxisKey: string;
+  xAxisLabel: string;
+}
+
+function addLineInfoIfNew(
+  lineInfos: LineInfo[],
+  addedLineKeys: Set<string>,
+  key: string,
+  algoName: string,
+  runLabel: string,
+  runIndex: number
+): void {
+  if (!addedLineKeys.has(key)) {
+    addedLineKeys.add(key);
+    lineInfos.push({ key, algoName, runLabel, runIndex });
+  }
+}
+
+function addInstantMetricToPoint(
+  algoName: string,
+  entries: BenchJsonEntry[],
+  selectedMetric: MetricKey,
+  dataPoint: ChartDataPoint
+): void {
+  if (entries.length === 0) return;
+  const value = entries[0].measurement[selectedMetric];
+  if (value !== null && value !== undefined) {
+    dataPoint[algoName] = value;
+  }
+}
+
+function processInstantPatternRun(
+  run: (typeof parsedData)[string]["history"][number],
+  index: number,
+  targetRunsLength: number,
+  selectedPattern: string,
+  selectedMetric: MetricKey,
+  dataMap: Map<number, ChartDataPoint>,
+  lineInfos: LineInfo[],
+  addedLineKeys: Set<string>
+): string {
+  const runNum = run.fileName.split("_")[0];
+  const isLatest = index === targetRunsLength - 1;
+  const runLabel = isLatest ? "Latest" : `Run-${runNum}`;
+
+  const patternData = run.data[selectedPattern];
+  if (!patternData) return "";
+
+  const dataPoint: ChartDataPoint = { run: runLabel };
+
+  for (const [algoName, entries] of Object.entries(patternData.results)) {
+    addLineInfoIfNew(lineInfos, addedLineKeys, algoName, algoName, "", 0);
+    addInstantMetricToPoint(algoName, entries, selectedMetric, dataPoint);
+  }
+
+  if (Object.keys(dataPoint).length > 1) {
+    dataMap.set(index, dataPoint);
+  }
+
+  return isLatest ? patternData.description || "" : "";
+}
+
+function processInstantPattern(
+  funcData: (typeof parsedData)[string],
+  selectedPattern: string,
+  selectedMetric: MetricKey
+): ChartState {
+  const targetRuns = [...funcData.history].reverse();
+  const trendMap = new Map<number, ChartDataPoint>();
+  const lineInfos: LineInfo[] = [];
+  const addedLineKeys = new Set<string>();
+  let currentPatternDesc = "";
+
+  for (const [index, run] of targetRuns.entries()) {
+    const desc = processInstantPatternRun(
+      run,
+      index,
+      targetRuns.length,
+      selectedPattern,
+      selectedMetric,
+      trendMap,
+      lineInfos,
+      addedLineKeys
+    );
+    if (desc) currentPatternDesc = desc;
+  }
+
+  const finalData = Array.from(trendMap.values());
+
+  return {
+    chartData: finalData,
+    lines: lineInfos,
+    chartTitle: `${selectedPattern} - Trend History`,
+    chartDesc: currentPatternDesc || "CodSpeed style performance history.",
+    yAxisLabel: METRICS.find((m) => m.key === selectedMetric)?.label || selectedMetric,
+    xAxisKey: "run",
+    xAxisLabel: "History (Runs)",
+  };
+}
+
+function addScalingMetricsToMap(
+  entries: BenchJsonEntry[],
+  selectedMetric: MetricKey,
+  lineKey: string,
+  mergedMap: Map<number, Record<string, number>>
+): void {
+  for (const entry of entries) {
+    const value = entry.measurement[selectedMetric];
+    if (value === null || value === undefined) continue;
+
+    if (!mergedMap.has(entry.input)) {
+      mergedMap.set(entry.input, { input: entry.input });
+    }
+    const existing = mergedMap.get(entry.input);
+    if (existing) {
+      existing[lineKey] = value;
+    }
+  }
+}
+
+function processScalingPatternRun(
+  run: (typeof parsedData)[string]["history"][number],
+  index: number,
+  selectedPattern: string,
+  selectedMetric: MetricKey,
+  historyCount: number,
+  mergedMap: Map<number, Record<string, number>>,
+  lineInfos: LineInfo[],
+  addedLineKeys: Set<string>
+): string {
+  const runLabel = index === 0 ? "Latest" : `Run-${run.fileName.split("_")[0]}`;
+  const patternData = run.data[selectedPattern];
+
+  if (!patternData) return "";
+
+  for (const [algoName, entries] of Object.entries(patternData.results)) {
+    const lineKey = historyCount === 1 ? algoName : `${algoName} (${runLabel})`;
+    addLineInfoIfNew(lineInfos, addedLineKeys, lineKey, algoName, runLabel, index);
+    addScalingMetricsToMap(entries, selectedMetric, lineKey, mergedMap);
+  }
+
+  return index === 0 ? patternData.description || "" : "";
+}
+
+function processScalingPattern(
+  funcData: (typeof parsedData)[string],
+  selectedPattern: string,
+  selectedMetric: MetricKey,
+  historyCount: number
+): ChartState {
+  const targetRuns = funcData.history.slice(0, historyCount);
+  const mergedMap = new Map<number, Record<string, number>>();
+  const lineInfos: LineInfo[] = [];
+  const addedLineKeys = new Set<string>();
+  let currentPatternDesc = "";
+
+  for (const [index, run] of targetRuns.entries()) {
+    const desc = processScalingPatternRun(
+      run,
+      index,
+      selectedPattern,
+      selectedMetric,
+      historyCount,
+      mergedMap,
+      lineInfos,
+      addedLineKeys
+    );
+    if (desc) currentPatternDesc = desc;
+  }
+
+  const finalData = Array.from(mergedMap.values()).sort(
+    (a, b) => (a.input as number) - (b.input as number)
+  );
+
+  return {
+    chartData: finalData,
+    lines: lineInfos,
+    chartTitle: `${selectedPattern} - ${METRICS.find((m) => m.key === selectedMetric)?.label}`,
+    chartDesc: currentPatternDesc,
+    yAxisLabel: METRICS.find((m) => m.key === selectedMetric)?.label || selectedMetric,
+    xAxisKey: "input",
+    xAxisLabel: "N (Input Size)",
+  };
+}
 
 export default function App() {
   const functions = Object.keys(parsedData);
@@ -27,8 +220,8 @@ export default function App() {
 
   useMemo(() => {
     if (selectedFunc && parsedData[selectedFunc]?.meta) {
-      const patterns = parsedData[selectedFunc].meta!.patterns;
-      if (patterns.length > 0) {
+      const patterns = parsedData[selectedFunc].meta?.patterns;
+      if (patterns && patterns.length > 0) {
         setSelectedPattern(patterns[0].name);
       }
     }
@@ -49,113 +242,10 @@ export default function App() {
       }
 
       const funcData = parsedData[selectedFunc];
-      let finalData: any[] = [];
-      const lineInfos: LineInfo[] = [];
-      const addedLineKeys = new Set<string>();
-      let currentPatternDesc = "";
-
       if (isInstant) {
-        // ＝＝＝ Instantパターンの場合：CodSpeed風トレンドグラフ ＝＝＝
-        const targetRuns = [...funcData.history].reverse();
-        const trendMap = new Map<number, any>();
-
-        targetRuns.forEach((run, index) => {
-          const runNum = run.fileName.split("_")[0];
-          const isLatest = index === targetRuns.length - 1;
-          const runLabel = isLatest ? "Latest" : `Run-${runNum}`;
-
-          const patternData = run.data[selectedPattern];
-          if (!patternData) return;
-          if (isLatest) currentPatternDesc = patternData.description || "";
-
-          const dataPoint: any = { run: runLabel };
-
-          Object.entries(patternData.results).forEach(([algoName, entries]) => {
-            if (!addedLineKeys.has(algoName)) {
-              addedLineKeys.add(algoName);
-              lineInfos.push({
-                key: algoName,
-                algoName,
-                runLabel: "",
-                runIndex: 0,
-              });
-            }
-
-            if (entries.length > 0) {
-              const metricValue = entries[0].measurement[selectedMetric];
-              if (metricValue !== null && metricValue !== undefined) {
-                dataPoint[algoName] = metricValue;
-              }
-            }
-          });
-
-          if (Object.keys(dataPoint).length > 1) {
-            trendMap.set(index, dataPoint);
-          }
-        });
-
-        finalData = Array.from(trendMap.values());
-
-        return {
-          chartData: finalData,
-          lines: lineInfos,
-          chartTitle: `${selectedPattern} - Trend History`,
-          chartDesc: currentPatternDesc || "CodSpeed style performance history.",
-          yAxisLabel: METRICS.find((m) => m.key === selectedMetric)?.label || selectedMetric,
-          xAxisKey: "run",
-          xAxisLabel: "History (Runs)",
-        };
-      } else {
-        // ＝＝＝ Scalingパターンの場合：Nに依存するグラフ ＝＝＝
-        const targetRuns = funcData.history.slice(0, historyCount);
-        const mergedMap = new Map<number, Record<string, number>>();
-
-        targetRuns.forEach((run, index) => {
-          const runLabel = index === 0 ? "Latest" : `Run-${run.fileName.split("_")[0]}`;
-          const patternData = run.data[selectedPattern];
-
-          if (!patternData) return;
-          if (index === 0) currentPatternDesc = patternData.description || "";
-
-          Object.entries(patternData.results).forEach(([algoName, entries]) => {
-            const lineKey = historyCount === 1 ? algoName : `${algoName} (${runLabel})`;
-
-            if (!addedLineKeys.has(lineKey)) {
-              addedLineKeys.add(lineKey);
-              lineInfos.push({
-                key: lineKey,
-                algoName,
-                runLabel,
-                runIndex: index,
-              });
-            }
-
-            entries.forEach((entry) => {
-              const inputSize = entry.input;
-              const metricValue = entry.measurement[selectedMetric];
-
-              if (metricValue === null || metricValue === undefined) return;
-
-              if (!mergedMap.has(inputSize)) {
-                mergedMap.set(inputSize, { input: inputSize });
-              }
-              mergedMap.get(inputSize)![lineKey] = metricValue;
-            });
-          });
-        });
-
-        finalData = Array.from(mergedMap.values()).sort((a, b) => a.input - b.input);
-
-        return {
-          chartData: finalData,
-          lines: lineInfos,
-          chartTitle: `${selectedPattern} - ${METRICS.find((m) => m.key === selectedMetric)?.label}`,
-          chartDesc: currentPatternDesc,
-          yAxisLabel: METRICS.find((m) => m.key === selectedMetric)?.label || selectedMetric,
-          xAxisKey: "input",
-          xAxisLabel: "N (Input Size)",
-        };
+        return processInstantPattern(funcData, selectedPattern, selectedMetric);
       }
+      return processScalingPattern(funcData, selectedPattern, selectedMetric, historyCount);
     }, [selectedFunc, selectedPattern, selectedMetric, historyCount, isInstant]);
 
   if (functions.length === 0) {
@@ -170,13 +260,16 @@ export default function App() {
             <h1 className={styles.pageTitle}>Tenbin Viewer</h1>
             <p className={styles.pageSubtitle}>Rust Performance Benchmarks</p>
           </div>
-          <div className={styles.spacer}></div>
+          <div className={styles.spacer} />
 
           <div className={styles.filters}>
             {/* Target Function */}
             <div className={styles.filterGroup}>
-              <label className={styles.filterLabel}>Target Function</label>
+              <label className={styles.filterLabel} htmlFor="target-func">
+                Target Function
+              </label>
               <select
+                id="target-func"
                 value={selectedFunc}
                 onChange={(e) => setSelectedFunc(e.target.value)}
                 className={styles.selectBox}
@@ -191,8 +284,11 @@ export default function App() {
 
             {/* Benchmark Pattern */}
             <div className={styles.filterGroup}>
-              <label className={styles.filterLabel}>Benchmark Pattern</label>
+              <label className={styles.filterLabel} htmlFor="bench-pattern">
+                Benchmark Pattern
+              </label>
               <select
+                id="bench-pattern"
                 value={selectedPattern}
                 onChange={(e) => setSelectedPattern(e.target.value)}
                 className={styles.selectBox}
@@ -207,8 +303,11 @@ export default function App() {
 
             {/* Metric to Graph (常に表示！) */}
             <div className={styles.filterGroup}>
-              <label className={styles.filterLabel}>Metric to Graph</label>
+              <label className={styles.filterLabel} htmlFor="metric-graph">
+                Metric to Graph
+              </label>
               <select
+                id="metric-graph"
                 value={selectedMetric}
                 onChange={(e) => setSelectedMetric(e.target.value as MetricKey)}
                 className={styles.selectBox}
@@ -224,8 +323,11 @@ export default function App() {
             {/* Compare History (Scalingのときだけ表示する) */}
             {!isInstant && (
               <div className={styles.filterGroup}>
-                <label className={styles.filterLabel}>Compare History</label>
+                <label className={styles.filterLabel} htmlFor="compare-history">
+                  Compare History
+                </label>
                 <select
+                  id="compare-history"
                   value={historyCount}
                   onChange={(e) => setHistoryCount(Number(e.target.value))}
                   className={styles.selectBox}

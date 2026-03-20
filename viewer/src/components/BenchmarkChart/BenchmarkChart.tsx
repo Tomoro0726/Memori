@@ -18,7 +18,7 @@ import styles from "./BenchmarkChart.module.css";
 interface ChartProps {
   title: string;
   description?: string;
-  data: any[];
+  data: Record<string, unknown>[];
   lines: LineInfo[];
   yAxisLabel: string;
   xAxisKey: string;
@@ -43,14 +43,14 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
   useEffect(() => {
     setAlgoColors((prev) => {
       const newColors = { ...prev };
-      algoNames.forEach((name, i) => {
+      for (const [i, name] of algoNames.entries()) {
         if (!newColors[name]) {
           newColors[name] = `hsl(${(i * 137.5) % 360}, 70%, 50%)`;
         }
-      });
+      }
       return newColors;
     });
-  }, [lines]);
+  }, [algoNames]);
 
   const handleAlgoColorChange = (algoName: string, color: string) => {
     setAlgoColors((prev) => ({ ...prev, [algoName]: color }));
@@ -83,9 +83,9 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
     if (data.length === 0) return;
     const headers = [xAxisKey, ...lines.map((l) => l.key)].join(",");
     const rows = data.map(
-      (row) => `${row[xAxisKey]},` + lines.map((line) => row[line.key] ?? "").join(",")
+      (row) => `${String(row[xAxisKey])},${lines.map((line) => row[line.key] ?? "").join(",")}`
     );
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
+    const csvContent = `data:text/csv;charset=utf-8,${[headers, ...rows].join("\n")}`;
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -103,10 +103,14 @@ export const BenchmarkChart: React.FC<ChartProps> = ({
           {description && <p className={styles.description}>{description}</p>}
         </div>
         <div className={styles.actions}>
-          <button onClick={downloadCSV} className={`${styles.btn} ${styles.btnCsv}`}>
+          <button type="button" onClick={downloadCSV} className={`${styles.btn} ${styles.btnCsv}`}>
             <FileSpreadsheet size={16} /> CSV
           </button>
-          <button onClick={downloadChart} className={`${styles.btn} ${styles.btnImage}`}>
+          <button
+            type="button"
+            onClick={downloadChart}
+            className={`${styles.btn} ${styles.btnImage}`}
+          >
             <Download size={16} /> Image
           </button>
         </div>
