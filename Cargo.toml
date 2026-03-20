@@ -1,10 +1,11 @@
 [package]
 name = "memori"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2024"
 authors = ["Tomoro Saito<s.tomoro0726@gmail.com>"]
 description = "A highly precise benchmarking and profiling suite for Rust."
 license = "MIT"
+repository="https://github.com/Tomoro0726/Memori"
 
 include = [
     "src/**/*",
@@ -21,3 +22,6 @@ serde = { version = "1.0", features = ["derive"] }
 [features]
 default = []
 real_time = []
+
+[target.'cfg(target_os = "linux")'.dependencies]
+perf-event = "0.4.9"
