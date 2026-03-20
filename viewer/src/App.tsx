@@ -10,7 +10,10 @@ import { BenchmarkChart } from "./components/Chart";
 import { FilterHeader } from "./components/Controls";
 import { useChartData, useChartFilters, useIsInstantPattern } from "./hooks";
 import type { BenchmarkDataMap, MetricKey } from "./types";
-import { loadBenchmarkData, loadBenchmarkDataFromFileList } from "./utils/dataLoader";
+import {
+  loadBenchmarkData,
+  loadBenchmarkDataFromFileList,
+} from "./utils/dataLoader";
 
 /** メトリック表示ラベルマップ */
 const METRICS: Array<{ key: MetricKey; label: string }> = [
@@ -28,7 +31,8 @@ function getLoadFailureState(): {
   if (isFileProtocol) {
     return {
       needsLocalFolderSelection: true,
-      message: "file:// では自動ロードできません。target/tenbin フォルダを選択してください。",
+      message:
+        "file:// では自動ロードできません。target/memori フォルダを選択してください。",
     };
   }
 
@@ -46,7 +50,8 @@ export default function App() {
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkDataMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [needsLocalFolderSelection, setNeedsLocalFolderSelection] = useState(false);
+  const [needsLocalFolderSelection, setNeedsLocalFolderSelection] =
+    useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,7 +89,9 @@ export default function App() {
     };
   }, []);
 
-  const handleFolderSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFolderSelection = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const files = event.target.files;
     if (!files || files.length === 0) {
       return;
@@ -99,7 +106,9 @@ export default function App() {
       setNeedsLocalFolderSelection(false);
     } catch (err) {
       console.error("Failed to load local benchmark data:", err);
-      setLoadError("フォルダ内JSONの読み込みに失敗しました。target/tenbin を選択してください。");
+      setLoadError(
+        "フォルダ内JSONの読み込みに失敗しました。target/memori を選択してください。",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -108,14 +117,19 @@ export default function App() {
   const functions = Object.keys(benchmarkData);
 
   // フィルター状態の管理
-  const { filters, setSelectedFunc, setSelectedPattern, setSelectedMetric, toggleSelectedRun } =
-    useChartFilters(functions, benchmarkData);
+  const {
+    filters,
+    setSelectedFunc,
+    setSelectedPattern,
+    setSelectedMetric,
+    toggleSelectedRun,
+  } = useChartFilters(functions, benchmarkData);
 
   // Instant/Scaling パターンを判定
   const isInstant = useIsInstantPattern(
     benchmarkData,
     filters.selectedFunc,
-    filters.selectedPattern
+    filters.selectedPattern,
   );
 
   // グラフデータを生成
@@ -130,9 +144,13 @@ export default function App() {
       return (
         <div className={styles.page}>
           <div className={styles.localLoadPanel}>
-            <h2 className={styles.localLoadTitle}>Local Folder Selection Required</h2>
+            <h2 className={styles.localLoadTitle}>
+              Local Folder Selection Required
+            </h2>
             <p className={styles.localLoadText}>{loadError}</p>
-            <p className={styles.localLoadText}>フォルダは target/tenbin を選択してください。</p>
+            <p className={styles.localLoadText}>
+              フォルダは target/memori を選択してください。
+            </p>
             <input
               className={styles.localLoadInput}
               type="file"
@@ -150,7 +168,11 @@ export default function App() {
   }
 
   if (functions.length === 0) {
-    return <div className={styles.page}>No benchmark data found. Run Tenbin tests first!</div>;
+    return (
+      <div className={styles.page}>
+        No benchmark data found. Run memori tests first!
+      </div>
+    );
   }
 
   return (

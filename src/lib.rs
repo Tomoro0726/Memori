@@ -44,7 +44,7 @@
 //! ## Quick Start
 //!
 //! ```rust,no_run
-//! use tenbin::{Func, Bench};
+//! use memori::{Func, Bench};
 //! use std::collections::HashSet;
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -92,16 +92,16 @@ pub mod runner;
 // -----------------------------------------------------------------------------
 // Global Allocator Setup
 // -----------------------------------------------------------------------------
-// By simply depending on the `tenbin` crate, this tracking allocator is injected
+// By simply depending on the `memori` crate, this tracking allocator is injected
 // to intercept and measure all heap allocations globally.
 //
-// Tenbinクレートをリンクするだけで、このトラッキングアロケータが注入され、
+// memoriクレートをリンクするだけで、このトラッキングアロケータが注入され、
 // グローバルなヒープメモリの確保・解放が自動的に計測されるようになります。
 #[global_allocator]
 static GLOBAL: allocator::TrackingAllocator = allocator::TrackingAllocator;
 
 // -----------------------------------------------------------------------------
-// Public Exports (The Tenbin Prelude)
+// Public Exports (The memori Prelude)
 // -----------------------------------------------------------------------------
 
 // Core Orchestration

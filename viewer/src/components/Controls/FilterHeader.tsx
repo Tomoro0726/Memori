@@ -59,7 +59,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   return (
     <header className={styles.header}>
       <div>
-        <h1 className={styles.pageTitle}>Tenbin Viewer</h1>
+        <h1 className={styles.pageTitle}>memori Viewer</h1>
         <p className={styles.pageSubtitle}>Rust Performance Benchmarks</p>
       </div>
       <div className={styles.spacer} />
@@ -136,11 +136,16 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
               {/* 開いた時に表示されるポップオーバー部分 */}
               <div className={styles.historyChecks}>
                 {historyRuns.map((run, index) => {
-                  const runNum = run.fileName.replace(/\.json$/i, "").split("_")[0];
+                  const runNum = run.fileName
+                    .replace(/\.json$/i, "")
+                    .split("_")[0];
                   const runLabel = index === 0 ? "Latest" : `Run-${runNum}`;
 
                   return (
-                    <label key={run.fileName} className={styles.historyCheckItem}>
+                    <label
+                      key={run.fileName}
+                      className={styles.historyCheckItem}
+                    >
                       <input
                         type="checkbox"
                         checked={selectedRuns.includes(index)}

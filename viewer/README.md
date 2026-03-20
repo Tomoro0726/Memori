@@ -1,4 +1,4 @@
-# Tenbin Viewer - React + TypeScript + Vite
+# memori Viewer - React + TypeScript + Vite
 
 ## ⚡ Quick Start
 

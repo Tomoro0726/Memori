@@ -91,19 +91,19 @@ where
     I: Clone + serde::Serialize + std::fmt::Display + 'static, // 表示用に Display を追加
 {
     /// Executes the full matrix of benchmarks with a rich CLI progress animation and
-    /// automatically saves the results as JSON files in the `target/tenbin` directory.
+    /// automatically saves the results as JSON files in the `target/memori` directory.
     /// Generates a master `report.html` that aggregates all benchmarks.
     ///
     /// <details>
     /// <summary>Japanese</summary>
     ///
     /// 【公開API】リッチなCLIプログレスアニメーションと共にすべてのベンチマークを実行し、
-    /// 結果を自動的に `target/tenbin` ディレクトリ以下にJSONファイルとして保存します。
-    /// さらに、`target/tenbin/report.html` と `target/tenbin/report-manifest.json` を生成します。
+    /// 結果を自動的に `target/memori` ディレクトリ以下にJSONファイルとして保存します。
+    /// さらに、`target/memori/report.html` と `target/memori/report-manifest.json` を生成します。
     /// HTML本体には結果を埋め込まず、ビューアーはフォルダ内のJSONをmanifest経由で参照します。
     /// </details>
     pub fn run_and_save(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let base_path = PathBuf::from("target/tenbin").join(&self.name);
+        let base_path = PathBuf::from("target/memori").join(&self.name);
         fs::create_dir_all(&base_path)?;
         self.update_main_json(&base_path)?;
 
@@ -117,9 +117,7 @@ where
         let json_data = serde_json::to_string_pretty(&report_map)?;
         fs::write(history_path, json_data)?;
 
-        println!("すべての計測が完了し、{} に保存されました。", self.name);
-
-        // 2. マスター report.html を生成（target/tenbin 直下）
+        // 2. マスター report.html を生成（target/memori 直下）
         Self::generate_master_report()?;
 
         Ok(())
@@ -287,7 +285,7 @@ where
             .unwrap_or(1)
     }
 
-    /// Generates `report.html` and `report-manifest.json` in `target/tenbin`.
+    /// Generates `report.html` and `report-manifest.json` in `target/memori`.
     ///
     /// `report.html` keeps only the viewer shell, while `report-manifest.json` stores
     /// relative JSON paths that the viewer loads at runtime.
@@ -295,14 +293,14 @@ where
     /// <details>
     /// <summary>Japanese</summary>
     ///
-    /// 【内部API】`target/tenbin` 直下に `report.html` と `report-manifest.json` を生成します。
+    /// 【内部API】`target/memori` 直下に `report.html` と `report-manifest.json` を生成します。
     /// HTMLにはデータ本体を埋め込まず、manifestにある相対パス経由でフォルダ内JSONを読み込みます。
     /// </details>
     fn generate_master_report() -> Result<(), Box<dyn std::error::Error>> {
-        let tenbin_root = PathBuf::from("target/tenbin");
+        let memori_root = PathBuf::from("target/memori");
 
-        // target/tenbin が存在します確認
-        if !tenbin_root.exists() {
+        // target/memori が存在します確認
+        if !memori_root.exists() {
             return Ok(());
         }
 
@@ -310,8 +308,8 @@ where
         let mut function_manifests = Vec::new();
         let mut embedded_data = BTreeMap::new();
 
-        // target/tenbin 直下のすべてのディレクトリを走査
-        if let Ok(entries) = fs::read_dir(&tenbin_root) {
+        // target/memori 直下のすべてのディレクトリを走査
+        if let Ok(entries) = fs::read_dir(&memori_root) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if !path.is_dir() {
@@ -404,23 +402,36 @@ where
         let injected_json = serde_json::to_string(&embedded_data)?;
         let safe_json = injected_json.replace("</", "<\\/");
         let injection_script = format!(
-            "<script>window.__TENBIN_DATA__ = {};</script>\n</head>",
+            "<script>window.__memori_DATA__ = {};</script>\n</head>",
             safe_json
         );
         let final_html = html_template.replace("</head>", &injection_script);
 
-        fs::write(tenbin_root.join("report.html"), final_html)?;
+        fs::write(memori_root.join("report.html"), final_html)?;
         fs::write(
-            tenbin_root.join("report-manifest.json"),
+            memori_root.join("report-manifest.json"),
             serde_json::to_string_pretty(&manifest)?,
         )?;
 
-        println!("📊 マスターレポートを生成しました:");
-        if let Ok(abs_path) = tenbin_root.join("report.html").canonicalize() {
-            println!("   file://{}", abs_path.display());
-        }
-        if let Ok(abs_path) = tenbin_root.join("report-manifest.json").canonicalize() {
-            println!("   file://{}", abs_path.display());
+        println!("Output report.html");
+        if let Ok(cwd) = std::env::current_dir() {
+            let abs_report = cwd.join(&memori_root).join("report.html");
+            let abs_manifest = cwd.join(&memori_root).join("report-manifest.json");
+
+            // Windows環境でもブラウザで開きやすいように \ を / に置換
+            let report_url = abs_report.to_string_lossy().replace('\\', "/");
+            let manifest_url = abs_manifest.to_string_lossy().replace('\\', "/");
+
+            #[cfg(target_os = "windows")]
+            {
+                println!("   file:///{}", report_url);
+                // println!("   file:///{}", manifest_url);
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                println!("   file://{}", report_url);
+                // println!("   file://{}", manifest_url);
+            }
         }
 
         Ok(())
