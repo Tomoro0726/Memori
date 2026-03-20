@@ -85,25 +85,28 @@ where
             std::hint::black_box((self.function)(&self.input));
         }
 
-        // 1. Groupの作成（権限がない場合はNoneになる）
-        let mut group = Group::new().ok();
+        // 1. ハードウェアカウンタのセットアップ（All or Nothing）
+        // クロージャ内で1つでも構築に失敗(?)した場合、直ちにNoneを返して全体を破棄します
+        let setup_result = (|| -> Option<(Group, perf_event::Counter, perf_event::Counter)> {
+            let mut group = Group::new().ok()?;
 
-        // 2. サイクルカウンタ（VMなどでハードウェア機能がない場合はNoneになる）
-        let cycles_counter = if let Some(g) = group.as_mut() {
-            let mut b = Builder::new().group(g).kind(Hardware::CPU_CYCLES);
-            b.exclude_kernel(true);
-            b.build().ok()
-        } else {
-            None
-        };
+            let mut c_builder = Builder::new().group(&mut group).kind(Hardware::CPU_CYCLES);
+            c_builder.exclude_kernel(true);
+            let cycles_counter = c_builder.build().ok()?;
 
-        // 3. 命令数カウンタ
-        let inst_counter = if let Some(g) = group.as_mut() {
-            let mut b = Builder::new().group(g).kind(Hardware::INSTRUCTIONS);
-            b.exclude_kernel(true);
-            b.build().ok()
-        } else {
-            None
+            let mut i_builder = Builder::new()
+                .group(&mut group)
+                .kind(Hardware::INSTRUCTIONS);
+            i_builder.exclude_kernel(true);
+            let inst_counter = i_builder.build().ok()?;
+
+            Some((group, cycles_counter, inst_counter))
+        })();
+
+        // 成功した場合はそれぞれの変数に入れ、失敗した場合は全てNoneとして扱います
+        let (mut group, cycles_counter, inst_counter) = match setup_result {
+            Some((g, c, i)) => (Some(g), Some(c), Some(i)),
+            None => (None, None, None),
         };
 
         let samples = 100;
@@ -112,7 +115,7 @@ where
         let mut min_time_ns: Option<u64> = None;
 
         for _ in 0..samples {
-            // Groupが存在する場合のみリセット＆開始
+            // Groupが正常に構築されている場合のみリセット＆開始
             if let Some(g) = group.as_mut() {
                 let _ = g.reset();
                 let _ = g.enable();
@@ -138,18 +141,18 @@ where
                 }
             }
 
-            // Groupが存在する場合のみ停止＆読み取り
+            // Groupが正常に構築されている場合のみ停止＆読み取り
             if let Some(g) = group.as_mut() {
                 let _ = g.disable();
                 if let Ok(counts) = g.read() {
-                    if let Some(c_counter) = &cycles_counter {
-                        let c = counts[c_counter];
+                    // setupが成功していればカウンタも必ずSomeになる
+                    if let (Some(c_cnt), Some(i_cnt)) = (&cycles_counter, &inst_counter) {
+                        let c = counts[c_cnt];
+                        let i = counts[i_cnt];
+
                         if c < min_cycles {
                             min_cycles = c;
                         }
-                    }
-                    if let Some(i_counter) = &inst_counter {
-                        let i = counts[i_counter];
                         if i < min_inst {
                             min_inst = i;
                         }
@@ -170,7 +173,7 @@ where
         let end_deallocs = crate::DEALLOC_COUNT.load(Ordering::SeqCst);
         let end_dealloc_bytes = crate::DEALLOC_BYTES.load(Ordering::SeqCst);
 
-        // もし計測に失敗・非対応環境だった場合は0（またはNone）とする
+        // フォールバック処理（計測できなかった場合は 0 または None にする）
         let final_cycles = if min_cycles == u64::MAX {
             0
         } else {
@@ -192,7 +195,6 @@ where
             end_dealloc_bytes - start_dealloc_bytes,
         )
     }
-
     /// Executes the benchmark and returns the measurement results.
     ///
     /// This method performs the following steps:
