@@ -48,11 +48,22 @@ function addLineInfoIfNew(
 function addInstantMetricToPoint(
   algoName: string,
   entries: BenchJsonEntry[],
-  selectedMetric: MetricKey,
+  selectedMetric: MetricKey | string,
   dataPoint: ChartDataPoint,
 ): void {
   if (entries.length === 0) return;
-  const value = entries[0].measurement[selectedMetric];
+  let value: unknown;
+  if (selectedMetric === "netBytes") {
+    const alloc = entries[0].measurement.allocBytes ?? 0;
+    const dealloc = entries[0].measurement.deallocBytes ?? 0;
+    value = alloc - dealloc;
+  } else if (
+    ["cycles", "timeNs", "allocCount", "allocBytes", "deallocBytes"].includes(
+      selectedMetric,
+    )
+  ) {
+    value = entries[0].measurement[selectedMetric as MetricKey];
+  }
   if (value !== null && value !== undefined) {
     dataPoint[algoName] = value;
   }
@@ -109,7 +120,7 @@ function processInstantPatternRun(
   index: number,
   targetRunsLength: number,
   selectedPattern: string,
-  selectedMetric: MetricKey,
+  selectedMetric: MetricKey | string,
   dataMap: Map<number, ChartDataPoint>,
   lineInfos: LineInfo[],
   addedLineKeys: Set<string>,
@@ -170,7 +181,6 @@ export function processInstantPattern(
   }
 
   const finalData = Array.from(trendMap.values());
-
   return {
     chartData: finalData,
     lines: lineInfos,
@@ -254,7 +264,7 @@ export function processScalingPattern(
       } => !!entry.run,
     );
 
-  const mergedMap = new Map<number, Record<string, number>>();
+  const mergedMap = new Map<number | string, ChartDataPoint>();
   const lineInfos: LineInfo[] = [];
   const addedLineKeys = new Set<string>();
   let currentPatternDesc = "";
