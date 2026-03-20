@@ -23,12 +23,7 @@ interface ReportManifestEntry {
  */
 function validateBenchmarkData(data: BenchmarkDataMap): boolean {
   for (const [, funcData] of Object.entries(data)) {
-    if (
-      funcData &&
-      typeof funcData === "object" &&
-      "meta" in funcData &&
-      "history" in funcData
-    ) {
+    if (funcData && typeof funcData === "object" && "meta" in funcData && "history" in funcData) {
       return true;
     }
   }
@@ -87,8 +82,7 @@ async function loadProductionData(): Promise<BenchmarkDataMap> {
     const history = [] as BenchmarkDataMap[string]["history"];
 
     for (const historyPath of entry.historyJsonPaths || []) {
-      const historyData =
-        await fetchJson<Record<string, BenchJsonReport>>(historyPath);
+      const historyData = await fetchJson<Record<string, BenchJsonReport>>(historyPath);
       if (!historyData) {
         continue;
       }
@@ -107,10 +101,7 @@ async function loadProductionData(): Promise<BenchmarkDataMap> {
     }
   }
 
-  if (
-    !validateBenchmarkData(parsedData) &&
-    Object.keys(parsedData).length > 0
-  ) {
+  if (!validateBenchmarkData(parsedData) && Object.keys(parsedData).length > 0) {
     console.warn("Loaded benchmark data format may be incomplete.");
   }
 
@@ -152,9 +143,7 @@ function loadDevelopmentData(): BenchmarkDataMap {
 
   // UI表示用に、ファイル名（001_, 002_...）の降順（最新が先頭）でソート
   for (const funcName in parsedData) {
-    parsedData[funcName].history.sort((a, b) =>
-      b.fileName.localeCompare(a.fileName),
-    );
+    parsedData[funcName].history.sort((a, b) => b.fileName.localeCompare(a.fileName));
   }
 
   return parsedData;

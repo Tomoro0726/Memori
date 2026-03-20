@@ -63,19 +63,14 @@ export default function App() {
   const functions = Object.keys(benchmarkData);
 
   // フィルター状態の管理
-  const {
-    filters,
-    setSelectedFunc,
-    setSelectedPattern,
-    setSelectedMetric,
-    setHistoryCount,
-  } = useChartFilters(functions, benchmarkData);
+  const { filters, setSelectedFunc, setSelectedPattern, setSelectedMetric, setHistoryCount } =
+    useChartFilters(functions, benchmarkData);
 
   // Instant/Scaling パターンを判定
   const isInstant = useIsInstantPattern(
     benchmarkData,
     filters.selectedFunc,
-    filters.selectedPattern,
+    filters.selectedPattern
   );
 
   // グラフデータを生成
@@ -90,11 +85,7 @@ export default function App() {
   }
 
   if (functions.length === 0) {
-    return (
-      <div className={styles.page}>
-        No benchmark data found. Run Tenbin tests first!
-      </div>
-    );
+    return <div className={styles.page}>No benchmark data found. Run Tenbin tests first!</div>;
   }
 
   return (
