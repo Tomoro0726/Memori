@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 /// 単一のベンチマークパターンに対する構造化されたレポートです。
 /// 登録された全関数の結果が含まれており、ビューワーで読み込むためのJSONシリアライズに使用されます。
 /// </details>
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BenchJsonReport<I> {
     pub pattern_type: String, // "instant" または "scaling"
@@ -33,7 +33,7 @@ pub struct BenchJsonReport<I> {
 ///
 /// 特定の入力サイズに対する計測結果を表す単一のデータポイントです。
 /// </details>
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BenchJsonEntry<I> {
     pub input: I,
@@ -77,31 +77,16 @@ impl<I> Func<I>
 where
     I: Clone + serde::Serialize + std::fmt::Display + 'static, // 表示用に Display を追加
 {
-    /// Executes the full matrix of benchmarks purely in memory and returns the structured results.
-    ///
-    /// CLI progress animations are disabled. This is highly useful for programmatic access,
-    /// testing, or server-side execution where standard output manipulation is undesirable.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    ///
-    /// 【公開API】すべてのベンチマークをメモリ上でのみ実行し、構造化された結果を返します。
-    ///
-    /// CLIのプログレスアニメーションは無効化されます。標準出力の書き換えを避けたい場合や、
-    /// プログラムからの直接アクセス、自動テスト、サーバーサイドでの実行に非常に便利です。
-    /// </details>
-    pub fn run_all(&mut self) -> BTreeMap<String, BenchJsonReport<I>> {
-        self.execute_core(false) // アニメーションOFF
-    }
-
     /// Executes the full matrix of benchmarks with a rich CLI progress animation and
-    /// automatically saves the results as JSON files in the `target/tenbin` directory.
+    /// automatically saves the results as JSON files, alongside a standalone `report.html`
+    /// viewer in the `target/tenbin` directory.
     ///
     /// <details>
     /// <summary>Japanese</summary>
     ///
     /// 【公開API】リッチなCLIプログレスアニメーションと共にすべてのベンチマークを実行し、
     /// 結果を自動的に `target/tenbin` ディレクトリ以下にJSONファイルとして保存します。
+    /// さらに、ブラウザですぐに確認できるスタンドアロンの `report.html` も同時生成します。
     /// </details>
     pub fn run_and_save(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let base_path = PathBuf::from("target/tenbin").join(&self.name);
@@ -111,6 +96,7 @@ where
         // アニメーションONでコア処理を実行
         let report_map = self.execute_core(true);
 
+        // 1. 履歴JSONの保存
         let next_num = self.get_next_file_number(&base_path);
         let date_str = Local::now().format("%Y-%m-%d").to_string();
         let history_path = base_path.join(format!("{:03}_{}.json", next_num, date_str));
@@ -118,7 +104,92 @@ where
         let json_data = serde_json::to_string_pretty(&report_map)?;
         fs::write(history_path, json_data)?;
 
+        // 2. React Viewer (単一HTML) の出力処理
+        self.generate_html_report(&base_path)?;
+
         println!("✨ すべての計測が完了し、{} に保存されました。", self.name);
+
+        // canonicalize() で絶対パスを取得してクリッカブルなリンクにする
+        if let Ok(abs_path) = base_path.join("report.html").canonicalize() {
+            println!("📊 レポートを見るには、以下をブラウザで開いてください:");
+            println!("   file://{}", abs_path.display());
+        }
+
+        Ok(())
+    }
+
+    /// Reads all historical JSON data and injects it into the pre-built React HTML template,
+    /// generating a zero-dependency standalone `report.html`.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    ///
+    /// 【内部API】過去の全履歴JSONデータを読み込み、事前ビルドされたReactのHTMLテンプレートに注入して、
+    /// 依存関係ゼロのスタンドアロンな `report.html` を生成します。
+    /// </details>
+    fn generate_html_report(&self, base_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+        // 開発者が事前にビルドしたReactのHTMLをバイナリに埋め込む
+        // ※ viewer/dist/index.html の相対パスはディレクトリ構造に合わせて調整してください
+        let html_template = include_str!("../../viewer/dist/index.html");
+
+        let mut app_data = BTreeMap::new();
+        let mut history_list = Vec::new();
+
+        // ディレクトリ内のすべての .json ファイルを読み込む
+        if let Ok(entries) = fs::read_dir(base_path) {
+            let mut files: Vec<_> = entries.filter_map(|e| e.ok()).collect();
+            // 降順（新しい順）にソート
+            files.sort_by_key(|a| std::cmp::Reverse(a.file_name()));
+
+            for entry in files {
+                let file_name = entry.file_name().to_string_lossy().to_string();
+                if file_name == "main.json"
+                    || file_name == "report.html"
+                    || !file_name.ends_with(".json")
+                {
+                    continue;
+                }
+
+                let content = fs::read_to_string(entry.path())?;
+                let parsed: serde_json::Value = serde_json::from_str(&content)?;
+
+                // HistoryRun の形式に合わせてプッシュ
+                history_list.push(serde_json::json!({
+                    "fileName": file_name,
+                    "data": parsed
+                }));
+            }
+        }
+
+        // main.json を読み込んでメタデータとして扱う
+        let main_json_path = base_path.join("main.json");
+        let meta = if main_json_path.exists() {
+            let content = fs::read_to_string(main_json_path)?;
+            serde_json::from_str::<FuncMetadata>(&content).ok()
+        } else {
+            None
+        };
+
+        app_data.insert(
+            self.name.clone(),
+            serde_json::json!({
+                "meta": meta,
+                "history": history_list
+            }),
+        );
+
+        // データをJSON文字列化
+        let injected_json = serde_json::to_string(&app_data)?;
+
+        // HTML内のプレースホルダーを、JSONデータで置換
+        let final_html = html_template.replace(
+            "null; /* TENBIN_INJECT_DATA */",
+            &format!("{};", injected_json),
+        );
+
+        // report.html として書き出し
+        fs::write(base_path.join("report.html"), final_html)?;
+
         Ok(())
     }
 

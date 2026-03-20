@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { loadBenchmarkData } from "./data";
 import type { MetricKey, LineInfo } from "./types";
 import styles from "./App.module.css";

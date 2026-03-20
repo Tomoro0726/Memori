@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use serde::Serialize;
 
 /// Absolute measurement metrics extracted from a benchmark run for CPU and memory.
@@ -15,7 +16,7 @@ use serde::Serialize;
 /// 「環境に依存しない論理的なコスト」を記録します。
 /// このデータを分析することで、アルゴリズムの計算量やメモリの非効率な使い方を特定できます。
 /// </details>
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Measurement {
     /// The number of CPU cycles taken for execution.

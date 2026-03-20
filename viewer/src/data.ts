@@ -1,7 +1,25 @@
 import type { BenchmarkDataMap, FuncMetadata, BenchJsonReport } from "./types";
 
+// 本番環境でRustから注入されるグローバル変数の型定義
+declare global {
+  interface Window {
+    __TENBIN_DATA__?: BenchmarkDataMap | null;
+  }
+}
+
 export function loadBenchmarkData(): BenchmarkDataMap {
-  // Viteの機能で target ディレクトリ以下のJSONを同期的に一括取得
+  // ＝＝＝ 本番環境（ビルド後）の処理 ＝＝＝
+  // Rustの `run_and_save` によって HTML の <head> に注入されたデータを読み取る
+  if (import.meta.env.PROD) {
+    if (window.__TENBIN_DATA__) {
+      return window.__TENBIN_DATA__;
+    }
+    console.warn("No benchmark data found in window.__TENBIN_DATA__.");
+    return {};
+  }
+
+  // ＝＝＝ 開発環境（npm run dev）の処理 ＝＝＝
+  // 開発中はローカルのファイルを監視して動的に読み込む
   const rawFiles = import.meta.glob("../../target/tenbin/**/*.json", {
     eager: true,
     import: "default",
