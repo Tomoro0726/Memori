@@ -1,11 +1,11 @@
-//! # Tenbin ⚖️
+//! # Memori
 //!
 //! A highly precise, multi-dimensional benchmarking and profiling suite for Rust.
 //!
-//! While traditional benchmarking tools focus solely on execution time, **Tenbin** acts as a true "balance scale" (天秤),
+//! While traditional benchmarking tools focus solely on execution time, **Memori** acts as a true "balance scale" (目盛り),
 //! weighing not just physical time, but also logical, environment-independent costs such as **CPU Instructions** and **Memory Allocations**.
 //!
-//! Combined with its zero-config, standalone React-based HTML reporter, Tenbin provides the ultimate developer experience (DX)
+//! Combined with its zero-config, standalone React-based HTML reporter, Memori provides the ultimate developer experience (DX)
 //! for tracking performance regressions and algorithmic scaling.
 //!
 //! <details>
@@ -13,7 +13,7 @@
 //!
 //! Rustのための高精度・多次元ベンチマーク＆プロファイリングスイートです。
 //!
-//! 従来のベンチマークツールが実行時間のみに焦点を当てているのに対し、**Tenbin（天秤）** は物理的な時間だけでなく、
+//! 従来のベンチマークツールが実行時間のみに焦点を当てているのに対し、**Memori（目盛り）** は物理的な時間だけでなく、
 //! **CPU命令数**や**メモリアロケーション**といった「環境に依存しない論理的なコスト」も精密に計量します。
 //! ゼロコンフィグで出力されるReactベースのスタンドアロンHTMLレポートと組み合わせることで、
 //! アルゴリズムの計算量推移やリグレッションを追跡するための究極の開発者体験（DX）を提供します。
@@ -26,7 +26,7 @@
 //!    - `Bench::Scaling`: Tests algorithms against growing input sizes (`N`) to visualize Big-O complexity.
 //!    - `Bench::Instant`: Tests a representative workload repeatedly over time to track performance regressions (CodSpeed-like trend graphs).
 //! 3. **Beautiful CLI DX**: Built-in, dependency-free progress animations (`\r` rewriting) to keep you informed during heavy stress tests.
-//! 4. **Standalone HTML Viewer**: Generates a rich, interactive dashboard (`report.html`) and loads benchmark JSON from `target/tenbin/*` folders via a manifest, making history files easy to inspect and prune.
+//! 4. **Standalone HTML Viewer**: Generates a rich, interactive dashboard (`report.html`) and loads benchmark JSON from `target/memori/*` folders via a manifest, making history files easy to inspect and prune.
 //!
 //! <details>
 //! <summary>Japanese</summary>
@@ -38,7 +38,7 @@
 //!    - `Bench::Scaling`: 入力サイズ(`N`)を増大させながらテストし、Big-O記法的な計算量の推移を可視化します。
 //!    - `Bench::Instant`: 代表的なワークロードを継続的にテストし、パフォーマンスの悪化（リグレッション）をトレンドグラフとして追跡します。
 //! 3. **美しいCLI体験**: 依存関係なしの組み込みプログレスアニメーションにより、重いストレステスト中も進捗を美しく表示します。
-//! 4. **スタンドアロンHTMLビューワー**: リッチなダッシュボード(`report.html`)を生成し、`target/tenbin/*` 配下のJSONをmanifest経由で読み込むため、履歴ファイルを人手で整理しやすくなります。
+//! 4. **スタンドアロンHTMLビューワー**: リッチなダッシュボード(`report.html`)を生成し、`target/memori/*` 配下のJSONをmanifest経由で読み込むため、履歴ファイルを人手で整理しやすくなります。
 //! </details>
 //!
 //! ## Quick Start

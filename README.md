@@ -1,4 +1,4 @@
-# Tenbin ⚖️
+# Memori ⚖️
 
 A highly precise, multi-dimensional benchmarking and profiling suite for Rust.
 
@@ -12,7 +12,7 @@ A highly precise, multi-dimensional benchmarking and profiling suite for Rust.
 ## Quick Start
 
 ```rust
-use tenbin::{Func, Bench};
+use memori::{Func, Bench};
 use std::collections::HashSet;
 
 fn main() -> Result<(), Box<dyn std::error::Error> {
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error> {
 
 ## Usage
 
-- Add `tenbin` to your `Cargo.toml` dependencies
+- Add `memori` to your `Cargo.toml` dependencies
 - Write benchmarks using `Func` and `Bench` APIs
 - Run your benchmarks and view results in `report.html`
 
