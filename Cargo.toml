@@ -1,6 +1,6 @@
 [package]
 name = "memori"
-version = "0.0.5"
+version = "0.0.7"
 edition = "2024"
 authors = ["Tomoro Saito<s.tomoro0726@gmail.com>"]
 description = "A highly precise benchmarking and profiling suite for Rust."

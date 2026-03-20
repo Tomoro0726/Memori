@@ -85,21 +85,24 @@ where
         }
 
         let mut group = Group::new().expect("権限エラー: perf_event_paranoid を確認してください");
-        let mut cycles_builder = Builder::new().group(&mut group);
-        cycles_builder
-            .kind(Hardware::CPU_CYCLES)
-            .exclude_kernel(true);
+
+        let mut cycles_builder = Builder::new().group(&mut group).kind(Hardware::CPU_CYCLES);
+
+        cycles_builder.exclude_kernel(true);
+
         let cycles_counter = cycles_builder
             .build()
-            .expect("Failed to build cycles counter");
+            .unwrap_or_else(|e| panic!("Failed to build cycles counter: {}", e));
 
-        let mut inst_builder = Builder::new().group(&mut group);
-        inst_builder
-            .kind(Hardware::INSTRUCTIONS)
-            .exclude_kernel(true);
+        let mut inst_builder = Builder::new()
+            .group(&mut group)
+            .kind(Hardware::INSTRUCTIONS);
+
+        inst_builder.exclude_kernel(true);
+
         let inst_counter = inst_builder
             .build()
-            .expect("Failed to build instructions counter");
+            .unwrap_or_else(|e| panic!("Failed to build instructions counter: {}", e));
 
         let samples = 100;
         let mut min_cycles = u64::MAX;
