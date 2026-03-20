@@ -1,3 +1,5 @@
+//! Global memory allocator for tracking allocations during benchmarks.
+
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
@@ -9,6 +11,10 @@ thread_local! {
     static IN_ALLOCATOR: Cell<bool> = const { Cell::new(false) };
 }
 
+/// A global allocator that tracks memory allocation statistics per thread.
+///
+/// It wraps the standard `System` allocator and records the number and size
+/// of allocations and deallocations.
 pub struct TrackingAllocator;
 
 unsafe impl GlobalAlloc for TrackingAllocator {

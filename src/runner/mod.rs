@@ -1,6 +1,12 @@
+//! Core execution engine for running benchmarks.
+
 use crate::Measurement;
 pub mod measurement;
 
+/// The minimal execution unit for running benchmarks.
+///
+/// Encapsulates the target function and input, providing high-precision
+/// measurements of CPU cycles, execution time, and memory allocations.
 pub struct Runner<I, F, R>
 where
     I: Clone,
@@ -15,14 +21,17 @@ where
     I: Clone,
     F: FnMut(&I) -> R,
 {
+    /// Creates a new `Runner` instance.
     pub fn new(input: I, function: F) -> Self {
         Self { input, function }
     }
 
+    /// Returns a reference to the input value.
     pub fn input(&self) -> &I {
         &self.input
     }
 
+    /// Executes the benchmark and returns the measurement results.
     #[cfg(target_os = "linux")]
     pub fn run(&mut self) -> Measurement {
         use perf_event::{Builder, events::Hardware};
@@ -150,6 +159,7 @@ where
         )
     }
 
+    /// Executes the benchmark and returns the measurement results.
     #[cfg(not(target_os = "linux"))]
     pub fn run(&mut self) -> Measurement {
         for _ in 0..100 {
