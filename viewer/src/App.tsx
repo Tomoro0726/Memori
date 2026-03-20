@@ -13,11 +13,13 @@ import type { BenchmarkDataMap, MetricKey } from "./types";
 import { loadBenchmarkData, loadBenchmarkDataFromFileList } from "./utils/dataLoader";
 
 /** メトリック表示ラベルマップ */
-const METRICS: Array<{ key: MetricKey; label: string }> = [
+const METRICS: Array<{ key: MetricKey | "netBytes"; label: string }> = [
   { key: "cycles", label: "CPU Cycles" },
   { key: "timeNs", label: "Time (ns)" },
   { key: "allocCount", label: "Allocations (Count)" },
   { key: "allocBytes", label: "Allocated Memory (Bytes)" },
+  { key: "deallocBytes", label: "Deallocated (Bytes)" },
+  { key: "netBytes", label: "Net Memory Increase (Bytes)" },
 ];
 
 function getLoadFailureState(): {

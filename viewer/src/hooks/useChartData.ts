@@ -16,6 +16,7 @@ const METRIC_LABELS: Map<MetricKey, string> = new Map([
   ["timeNs", "Time (ns)"],
   ["allocCount", "Allocations (Count)"],
   ["allocBytes", "Allocated Memory (Bytes)"],
+  ["deallocBytes", "Deallocated (Bytes)"], // 追加
 ]);
 
 /**
@@ -60,6 +61,7 @@ export function useChartData(benchmarkData: BenchmarkDataMap, filters: ChartFilt
  * @param metric - メトリックキー
  * @returns 表示ラベル
  */
-export function getMetricLabel(metric: MetricKey): string {
-  return METRIC_LABELS.get(metric) || metric;
+export function getMetricLabel(metric: MetricKey | string): string {
+  if (metric === "netBytes") return "Net Memory Increase (Bytes)";
+  return METRIC_LABELS.get(metric as MetricKey) || metric;
 }

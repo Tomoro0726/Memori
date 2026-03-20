@@ -16,7 +16,6 @@ unsafe impl GlobalAlloc for TrackingAllocator {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        // 以下の2行を追加して解放を追跡
         DEALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
         DEALLOC_BYTES.fetch_add(layout.size(), Ordering::SeqCst);
         unsafe { System.dealloc(ptr, layout) }

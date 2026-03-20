@@ -18,7 +18,7 @@ interface FilterHeaderProps {
   /** ベンチマークデータ */
   benchmarkData: BenchmarkDataMap;
   /** メトリックのラベルマップ */
-  metricLabels: Array<{ key: MetricKey; label: string }>;
+  metricLabels: Array<{ key: MetricKey | string; label: string }>;
   /** 選択されているメトリック */
   selectedMetric: MetricKey;
   /** メトリック選択時のコールバック */
@@ -107,16 +107,11 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
 
               <div className={styles.historyChecks}>
                 {historyRuns.map((run, index) => {
-                  const runNum = run.fileName
-                    .replace(/\.json$/i, "")
-                    .split("_")[0];
+                  const runNum = run.fileName.replace(/\.json$/i, "").split("_")[0];
                   const runLabel = index === 0 ? "Latest" : `Run-${runNum}`;
 
                   return (
-                    <label
-                      key={run.fileName}
-                      className={styles.historyCheckItem}
-                    >
+                    <label key={run.fileName} className={styles.historyCheckItem}>
                       <input
                         type="checkbox"
                         checked={selectedRuns.includes(index)}

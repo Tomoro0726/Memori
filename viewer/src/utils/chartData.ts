@@ -253,9 +253,14 @@ export function processScalingPattern(
     if (desc) currentPatternDesc = desc;
   }
 
-  const finalData = Array.from(mergedMap.values()).sort(
-    (a, b) => (a.input as number) - (b.input as number)
-  );
+  const finalData = Array.from(mergedMap.values()).sort((a, b) => {
+    const valA = a.input;
+    const valB = b.input;
+    if (typeof valA === "number" && typeof valB === "number") {
+      return valA - valB;
+    }
+    return String(valA).localeCompare(String(valB));
+  });
 
   return {
     chartData: finalData,
