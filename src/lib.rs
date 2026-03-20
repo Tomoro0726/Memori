@@ -82,35 +82,17 @@ pub mod allocator;
 pub mod func;
 pub mod runner;
 
-// -----------------------------------------------------------------------------
-// Global Allocator Setup
-// -----------------------------------------------------------------------------
-// By simply depending on the `memori` crate, this tracking allocator is injected
-// to intercept and measure all heap allocations globally.
-//
-// memoriクレートをリンクするだけで、このトラッキングアロケータが注入され、
-// グローバルなヒープメモリの確保・解放が自動的に計測されるようになります。
 #[global_allocator]
 static GLOBAL: allocator::TrackingAllocator = allocator::TrackingAllocator;
 
-// -----------------------------------------------------------------------------
-// Public Exports (The memori Prelude)
-// -----------------------------------------------------------------------------
-
-// Core Orchestration
 pub use func::Bench;
 pub use func::Func;
 
-// Measurement Metrics
 pub use runner::measurement::Measurement;
 
-// Internal Runner (Exported for advanced users who want to bypass `Func`)
 pub use runner::Runner;
 
-// Output Structures (Exported for programmatic consumption of `run_all`)
 pub use func::output::BenchJsonEntry;
 pub use func::output::BenchJsonReport;
 pub use func::output::FuncMetadata;
 pub use func::output::PatternMetadata;
-
-// Low-level Global Counters (Exported in case users need direct access)
