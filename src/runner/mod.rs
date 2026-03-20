@@ -2,7 +2,19 @@ use crate::Measurement;
 pub mod measurement;
 use std::sync::atomic::Ordering;
 
-/// ベンチマークの実行の最小単位
+/// The minimal execution unit for running benchmarks.
+///
+/// It encapsulates the target function and a specific input value, providing highly accurate
+/// measurements of CPU cycles, execution time, and memory allocations.
+///
+/// <details>
+/// <summary>Japanese</summary>
+///
+/// ベンチマーク実行の最小単位です。
+///
+/// ターゲットとなる関数と特定の入力値をカプセル化し、CPUサイクル数、実行時間、
+/// およびメモリアロケーションの高精度な計測を提供します。
+/// </details>
 pub struct Runner<I, F, R>
 where
     I: Clone,
@@ -17,14 +29,53 @@ where
     I: Clone,
     F: FnMut(&I) -> R,
 {
+    /// Creates a new `Runner` instance.
+    ///
+    /// # Arguments
+    /// * `input` - The input value to be passed to the benchmark function.
+    /// * `function` - The closure or function to be benchmarked.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    ///
+    /// 新しい `Runner` インスタンスを作成します。
+    ///
+    /// # 引数
+    /// * `input` - ベンチマーク関数に渡される入力値。
+    /// * `function` - ベンチマーク対象のクロージャまたは関数。
+    /// </details>
     pub fn new(input: I, function: F) -> Self {
         Runner { input, function }
     }
 
+    /// Returns a reference to the input value used for this benchmark run.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    ///
+    /// このベンチマーク実行で使用される入力値への参照を返します。
+    /// </details>
     pub fn input(&self) -> &I {
         &self.input
     }
 
+    /// Executes the benchmark and returns the measurement results.
+    ///
+    /// This method performs the following steps:
+    /// 1. **Warm-up**: Executes the function several times to warm up the CPU cache.
+    /// 2. **Sampling**: Runs the function multiple times to find the minimum CPU cycles (and real time if the `real_time` feature is enabled) to filter out OS noise.
+    /// 3. **Allocation Tracking**: Executes the function exactly once while tracking global memory allocations and deallocations.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    ///
+    /// ベンチマークを実行し、計測結果を返します。
+    ///
+    /// このメソッドは以下のステップを実行します：
+    /// 1. **ウォームアップ**: CPUキャッシュを温めるために関数を複数回実行します。
+    /// 2. **サンプリング**: 関数を複数回実行し、OSのノイズを排除するために最小のCPUサイクル数（`real_time`機能が有効な場合は実時間も）を取得します。
+    /// 3. **アロケーション追跡**: グローバルなメモリの割り当てと解放を追跡しながら、関数を正確に1回実行します。
+    /// </details>
     #[cfg(target_os = "linux")]
     pub fn run(&mut self) -> Measurement {
         use perf_event::{Builder, Group, events::Hardware};
@@ -104,6 +155,23 @@ where
         )
     }
 
+    /// Executes the benchmark and returns the measurement results.
+    ///
+    /// This method performs the following steps:
+    /// 1. **Warm-up**: Executes the function several times to warm up the CPU cache.
+    /// 2. **Sampling**: Runs the function multiple times to find the minimum CPU cycles (and real time if the `real_time` feature is enabled) to filter out OS noise.
+    /// 3. **Allocation Tracking**: Executes the function exactly once while tracking global memory allocations and deallocations.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    ///
+    /// ベンチマークを実行し、計測結果を返します。
+    ///
+    /// このメソッドは以下のステップを実行します：
+    /// 1. **ウォームアップ**: CPUキャッシュを温めるために関数を複数回実行します。
+    /// 2. **サンプリング**: 関数を複数回実行し、OSのノイズを排除するために最小のCPUサイクル数（`real_time`機能が有効な場合は実時間も）を取得します。
+    /// 3. **アロケーション追跡**: グローバルなメモリの割り当てと解放を追跡しながら、関数を正確に1回実行します。
+    /// </details>
     #[cfg(not(target_os = "linux"))]
     pub fn run(&mut self) -> Measurement {
         for _ in 0..100 {
@@ -112,7 +180,7 @@ where
 
         let samples = 100;
         let mut min_cycles = u64::MAX;
-        let mut min_time_ns: Option<u64> = None;
+        let min_time_ns: Option<u64> = None;
 
         #[cfg(target_arch = "x86_64")]
         {
@@ -152,8 +220,6 @@ where
                 let start = std::time::Instant::now();
                 std::hint::black_box((self.function)(&self.input));
                 let elapsed = start.elapsed().as_nanos() as u64;
-
-                // fallback 環境ではサイクル数の代わりに時間を代入
                 if elapsed < min_cycles {
                     min_cycles = elapsed;
                 }

@@ -1,21 +1,67 @@
-use crate::Runner;
+use std::collections::BTreeMap;
+
+use crate::{BenchJsonEntry, BenchJsonReport, Runner};
 pub mod output;
 
-/// 計測の入力パターン（代表値 or スケーリング）
+/// The input pattern for a benchmark.
+///
+/// Defines whether the benchmark should be run with a single representative value (`Instant`)
+/// or a series of values to observe performance scaling (`Scaling`).
+///
+/// <details>
+/// <summary>Japanese</summary>
+///
+/// 計測の入力パターンです。
+///
+/// 単一の代表値で計測する（`Instant`）か、複数の値を与えてパフォーマンスの推移を計測する（`Scaling`）かを定義します。
+/// </details>
 pub enum Bench<I> {
-    /// 単一の代表値で計測する
+    /// Benchmark with a single representative value.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    /// 単一の代表値で計測します。
+    /// </details>
     Instant(I),
-    /// 複数の値でスケーリング（推移）を計測する
+
+    /// Benchmark with multiple values to measure scaling and trends.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    /// 複数の値でスケーリング（推移）を計測します。
+    /// </details>
     Scaling(Vec<I>),
 }
 
-/// 1つの計測シナリオ（パターン）
+/// A single benchmark scenario (pattern).
+///
+/// <details>
+/// <summary>Japanese</summary>
+///
+/// 1つの計測シナリオ（パターン）を表す構造体です。
+/// </details>
 pub struct BenchPattern<I> {
+    /// The name of the benchmark pattern.
     pub name: String,
+    /// A human-readable description of what this pattern tests.
     pub description: String,
+    /// The input values and pattern type (`Instant` or `Scaling`).
     pub input: Bench<I>,
 }
 
+/// The main orchestrator for benchmarking.
+///
+/// `Func` allows you to register multiple competing functions and multiple benchmark scenarios (patterns).
+/// It then automatically executes a full matrix (cross-product) of all functions against all patterns.
+///
+/// <details>
+/// <summary>Japanese</summary>
+///
+/// ベンチマーク実行のメインオーケストレーターです。
+///
+/// 複数の競合する関数（ライバル）と、複数の計測シナリオ（パターン）を登録できます。
+/// その後、登録されたすべての関数に対して、すべてのパターンを掛け合わせる「マトリックス実行」を自動で行います。
+/// </details>
 pub struct Func<I>
 where
     I: Clone,
@@ -32,7 +78,13 @@ impl<I> Func<I>
 where
     I: Clone,
 {
-    /// 新しい計測スイートを作成します
+    /// Creates a new benchmark suite.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    ///
+    /// 新しい計測スイートを作成します。
+    /// </details>
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -42,12 +94,31 @@ where
         }
     }
 
+    /// Adds a global description to the benchmark suite.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    ///
+    /// 計測スイート全体の説明文を追加します。
+    /// </details>
     pub fn with_description(mut self, description: &str) -> Self {
         self.description = Some(description.to_string());
         self
     }
 
-    /// 計測対象の関数を追加します（複数登録可能）
+    /// Registers a target function to be benchmarked.
+    ///
+    /// You can chain this method to register multiple implementations for comparison.
+    /// The return type `R` of the provided closure is internally discarded to unify the function signatures.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    ///
+    /// 計測対象の関数を追加します。
+    ///
+    /// このメソッドをチェーンして呼び出すことで、比較したい複数の実装（ライバルたち）を登録できます。
+    /// 内部でクロージャの戻り値 `R` は破棄され、異種な戻り値を持つ関数でも単一のコレクションで管理できるよう型消去が行われます。
+    /// </details>
     pub fn add_function<F, R>(mut self, name: &str, mut func: F) -> Self
     where
         F: FnMut(&I) -> R + 'static,
@@ -60,7 +131,13 @@ where
         self
     }
 
-    /// 計測シナリオ（代表値 or スケーリング）を追加します
+    /// Registers a benchmark scenario (either an `Instant` or `Scaling` pattern).
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    ///
+    /// 計測シナリオ（代表値またはスケーリング）を追加します。
+    /// </details>
     pub fn add_bench(mut self, name: &str, description: &str, input: Bench<I>) -> Self {
         self.patterns.push(BenchPattern {
             name: name.to_string(),
@@ -68,36 +145,5 @@ where
             input,
         });
         self
-    }
-
-    /// 登録された全関数に対して、全パターンを実行します（マトリックス実行）
-    pub fn run_all(&mut self) {
-        println!("🚀 実行開始: {}", self.name);
-
-        // 1. シナリオ（パターン）ごとに回す
-        for pattern in &self.patterns {
-            println!(" ├─ パターン: {} ({:?})", pattern.name, pattern.description);
-
-            // 2. 登録された関数ごとに回す
-            for (func_name, func) in &mut self.functions {
-                println!(" │   ├─ 関数: {}", func_name);
-
-                // 3. パターンの種類に応じて Runner を実行
-                match &pattern.input {
-                    Bench::Instant(val) => {
-                        let mut runner = Runner::new(val.clone(), func);
-                        let m = runner.run();
-                        // ここで m (Measurement) を保存する処理
-                    }
-                    Bench::Scaling(vals) => {
-                        for val in vals {
-                            let mut runner = Runner::new(val.clone(), &mut *func);
-                            let m = runner.run();
-                            // ここで (val, m) のペアを保存する処理
-                        }
-                    }
-                }
-            }
-        }
     }
 }

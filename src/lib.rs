@@ -11,4 +11,6 @@ pub use runner::measurement::Measurement;
 
 pub use func::Bench;
 pub use func::Func;
+pub use func::output::BenchJsonEntry;
+pub use func::output::BenchJsonReport;
 pub use runner::Runner;
