@@ -1,87 +1,80 @@
 //! # Memori
 //!
-//! A highly precise, multi-dimensional benchmarking and profiling suite for Rust.
+//! A benchmarking and profiling suite for Rust.
 //!
-//! While traditional benchmarking tools focus solely on execution time, **Memori** acts as a true "balance scale" (目盛り),
-//! weighing not just physical time, but also logical, environment-independent costs such as **CPU Instructions** and **Memory Allocations**.
-//!
-//! Combined with its zero-config, standalone React-based HTML reporter, Memori provides the ultimate developer experience (DX)
-//! for tracking performance regressions and algorithmic scaling.
+//! Traditional benchmarking tools focus primarily on execution time. **Memori**
+//! extends this by measuring logical, environment-independent costs such as **CPU Instructions** and **Memory Allocations**.
+//! It also includes a built-in HTML reporter to track performance regressions and algorithmic scaling.
 //!
 //! <details>
 //! <summary>Japanese</summary>
 //!
-//! Rustのための高精度・多次元ベンチマーク＆プロファイリングスイートです。
+//! Rustのためのベンチマーク＆プロファイリングスイートです。
 //!
-//! 従来のベンチマークツールが実行時間のみに焦点を当てているのに対し、**Memori（目盛り）** は物理的な時間だけでなく、
-//! **CPU命令数**や**メモリアロケーション**といった「環境に依存しない論理的なコスト」も精密に計量します。
-//! ゼロコンフィグで出力されるReactベースのスタンドアロンHTMLレポートと組み合わせることで、
-//! アルゴリズムの計算量推移やリグレッションを追跡するための究極の開発者体験（DX）を提供します。
+//! 従来のベンチマークツールが実行時間を主眼に置くのに対し、**Memori（目盛り）** は物理的な時間だけでなく、
+//! **CPU命令数**や**メモリアロケーション**といった「環境に依存しない論理的なコスト」も計測します。
+//! また、組み込みのHTMLレポート機能により、計算量の推移やパフォーマンスの退行（リグレッション）を視覚的に追跡できます。
 //! </details>
 //!
-//! ## Core Concepts
+//! ## Core Features
 //!
-//! 1. **Multi-Dimensional Metrics**: Measures CPU Cycles, Wall-clock time (ns), Hardware Instructions (Linux only), and Heap Allocations/Deallocations simultaneously.
-//! 2. **Scaling vs Trend Analysis**:
+//! 1. **Detailed Metrics**: Simultaneously measures CPU cycles, wall-clock time (ns), hardware instructions (Linux only), and heap allocations.
+//! 2. **Scaling & Trend Analysis**:
 //!    - `Bench::Scaling`: Tests algorithms against growing input sizes (`N`) to visualize Big-O complexity.
-//!    - `Bench::Instant`: Tests a representative workload repeatedly over time to track performance regressions (CodSpeed-like trend graphs).
-//! 3. **Beautiful CLI DX**: Built-in, dependency-free progress animations (`\r` rewriting) to keep you informed during heavy stress tests.
-//! 4. **Standalone HTML Viewer**: Generates a rich, interactive dashboard (`report.html`) and loads benchmark JSON from `target/memori/*` folders via a manifest, making history files easy to inspect and prune.
+//!    - `Bench::Instant`: Tests a representative workload over time to track performance regressions.
+//! 3. **CLI Progress**: Dependency-free progress animations for long-running benchmarks.
+//! 4. **HTML Viewer**: Generates an interactive dashboard (`report.html`) that loads benchmark history from `target/memori/*` via a JSON manifest.
 //!
 //! <details>
 //! <summary>Japanese</summary>
 //!
-//! ### コアコンセプト
+//! ### 主な機能
 //!
-//! 1. **多次元の計測指標**: CPUサイクル、実時間(ns)、ハードウェア命令数(Linuxのみ)、ヒープアロケーション/デアロケーションを同時に計測します。
+//! 1. **詳細な計測指標**: CPUサイクル、実時間(ns)、ハードウェア命令数(Linuxのみ)、ヒープの確保/解放量を同時に計測します。
 //! 2. **スケーリングとトレンド分析**:
-//!    - `Bench::Scaling`: 入力サイズ(`N`)を増大させながらテストし、Big-O記法的な計算量の推移を可視化します。
-//!    - `Bench::Instant`: 代表的なワークロードを継続的にテストし、パフォーマンスの悪化（リグレッション）をトレンドグラフとして追跡します。
-//! 3. **美しいCLI体験**: 依存関係なしの組み込みプログレスアニメーションにより、重いストレステスト中も進捗を美しく表示します。
-//! 4. **スタンドアロンHTMLビューワー**: リッチなダッシュボード(`report.html`)を生成し、`target/memori/*` 配下のJSONをmanifest経由で読み込むため、履歴ファイルを人手で整理しやすくなります。
+//!    - `Bench::Scaling`: 入力サイズ(`N`)を変動させ、計算量の推移（Big-O）を可視化します。
+//!    - `Bench::Instant`: 固定のワークロードを継続的にテストし、パフォーマンスの退行を追跡します。
+//! 3. **CLIプログレス表示**: 長時間のベンチマークでも進捗がわかる、依存関係なしの組み込みインジケータを備えています。
+//! 4. **HTMLビューワー**: 履歴データ(`target/memori/*`)をマニフェスト経由で読み込むダッシュボード(`report.html`)を出力します。
 //! </details>
-//!
 //! ## Quick Start
 //!
 //! ```rust,no_run
-//! use memori::{Func, Bench};
+//! use memori::{Bench, Func};
 //! use std::collections::HashSet;
-//!
-//! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     // 1. Create a new benchmark suite
+
+//! fn main() {
 //!     let mut suite = Func::new("Deduplication_Battle")
-//!         .with_description("Comparing allocation and time costs of deduplication strategies.");
-//!
-//!     // 2. Register competing functions
-//!     suite = suite
+//!         .with_description("Comparing allocation and time costs of deduplication strategies.")
+//!         // 2. Register competing functions
 //!         .add_function("HashSet", |n: &usize| {
 //!             let mut set = HashSet::new();
-//!             for i in 0..*n { set.insert(i % 100); }
+//!             for i in 0..*n {
+//!                 set.insert(i % 100);
+//!             }
 //!         })
 //!         .add_function("Vec_Dedup", |n: &usize| {
 //!             let mut vec = Vec::new();
-//!             for i in 0..*n { vec.push(i % 100); }
+//!             for i in 0..*n {
+//!                 vec.push(i % 100);
+//!             }
 //!             vec.sort();
 //!             vec.dedup();
-//!         });
-//!
-//!     // 3. Define benchmarking patterns (Scaling and Instant)
-//!     suite = suite
-//!         .add_bench(
+//!         })
+//!         // 3. Define benchmarking patterns (Scaling and Instant)
+//!        .add_bench(
 //!             "scaling_stress",
 //!             "O(N) vs O(N log N) scaling test",
-//!             Bench::Scaling(vec![100, 1000, 5000, 10000])
+//!             Bench::Scaling(vec![100, 1000, 5000, 10000]),
 //!         )
 //!         .add_bench(
 //!             "baseline_1k",
 //!             "Continuous trend tracking for N=1000",
-//!             Bench::Instant(1000)
+//!             Bench::Instant(1000),
 //!         );
-//!
+
 //!     // 4. Run the matrix and generate the HTML report!
-//!     suite.run_and_save()?;
-//!
-//!     Ok(())
+//!     suite.run_and_save().unwrap();
 //! }
 //! ```
 

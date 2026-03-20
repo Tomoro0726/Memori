@@ -2,12 +2,7 @@
 
 A highly precise benchmarking and profiling suite for Rust.
 
-## Features
-
-- Multi-dimensional metrics: CPU cycles, wall-clock time, hardware instructions (Linux only), heap allocations/deallocations
-- Scaling vs Trend Analysis: `Bench::Scaling` for Big-O complexity, `Bench::Instant` for regression tracking
-- Beautiful: Built-in progress animations
-- Standalone HTML Viewer: Generates interactive dashboard (`report.html`) for easy history inspection
+![レポートの画像](/docs/images/report.jpg)
 
 ## Quick Start
 
