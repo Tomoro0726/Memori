@@ -1,50 +1,39 @@
 //! Global memory allocator for tracking allocations during benchmarks.
+//!
+//! <details>
+//! <summary>Japanese</summary>
+//! ベンチマーク中のメモリ割り当てを追跡するためのグローバルメモリアロケーター。
+//! </details>
 
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::cell::Cell;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-thread_local! {
-    pub static THREAD_ALLOC_COUNT: Cell<usize> = const { Cell::new(0) };
-    pub static THREAD_ALLOC_BYTES: Cell<usize> = const { Cell::new(0) };
-    pub static THREAD_DEALLOC_COUNT: Cell<usize> = const { Cell::new(0) };
-    pub static THREAD_DEALLOC_BYTES: Cell<usize> = const { Cell::new(0) };
-    static IN_ALLOCATOR: Cell<bool> = const { Cell::new(false) };
-}
+pub static ALLOC_COUNT: AtomicUsize = AtomicUsize::new(0);
+pub static ALLOC_BYTES: AtomicUsize = AtomicUsize::new(0);
+pub static DEALLOC_COUNT: AtomicUsize = AtomicUsize::new(0);
+pub static DEALLOC_BYTES: AtomicUsize = AtomicUsize::new(0);
 
-/// A global allocator that tracks memory allocation statistics per thread.
+/// A global allocator that tracks memory allocation statistics globally.
 ///
-/// It wraps the standard `System` allocator and records the number and size
-/// of allocations and deallocations.
+/// <details>
+/// <summary>Japanese</summary>
+/// メモリ割り当て統計をグローバルに追跡するアロケーター。
+/// アトミック変数を使用することで、安全かつ超低オーバーヘッドで動作します。
+/// </details>
 pub struct TrackingAllocator;
 
 unsafe impl GlobalAlloc for TrackingAllocator {
+    #[inline]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let size = layout.size();
-
-        let _ = IN_ALLOCATOR.try_with(|in_alloc| {
-            if !in_alloc.get() {
-                in_alloc.set(true);
-                let _ = THREAD_ALLOC_COUNT.try_with(|c| c.set(c.get().wrapping_add(1)));
-                let _ = THREAD_ALLOC_BYTES.try_with(|c| c.set(c.get().wrapping_add(size)));
-                in_alloc.set(false);
-            }
-        });
-
+        ALLOC_COUNT.fetch_add(1, Ordering::Relaxed);
+        ALLOC_BYTES.fetch_add(layout.size(), Ordering::Relaxed);
         unsafe { System.alloc(layout) }
     }
 
+    #[inline]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        let size = layout.size();
-
-        let _ = IN_ALLOCATOR.try_with(|in_alloc| {
-            if !in_alloc.get() {
-                in_alloc.set(true);
-                let _ = THREAD_DEALLOC_COUNT.try_with(|c| c.set(c.get().wrapping_add(1)));
-                let _ = THREAD_DEALLOC_BYTES.try_with(|c| c.set(c.get().wrapping_add(size)));
-                in_alloc.set(false);
-            }
-        });
-
+        DEALLOC_COUNT.fetch_add(1, Ordering::Relaxed);
+        DEALLOC_BYTES.fetch_add(layout.size(), Ordering::Relaxed);
         unsafe { System.dealloc(ptr, layout) }
     }
 }

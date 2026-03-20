@@ -152,34 +152,20 @@ where
             }
         }
 
-        let s_alloc = crate::allocator::THREAD_ALLOC_COUNT
-            .try_with(|c| c.get())
-            .unwrap_or(0);
-        let s_bytes = crate::allocator::THREAD_ALLOC_BYTES
-            .try_with(|c| c.get())
-            .unwrap_or(0);
-        let s_dealloc = crate::allocator::THREAD_DEALLOC_COUNT
-            .try_with(|c| c.get())
-            .unwrap_or(0);
-        let s_dealloc_bytes = crate::allocator::THREAD_DEALLOC_BYTES
-            .try_with(|c| c.get())
-            .unwrap_or(0);
+        let s_alloc = crate::allocator::ALLOC_COUNT.load(std::sync::atomic::Ordering::Relaxed);
+        let s_bytes = crate::allocator::ALLOC_BYTES.load(std::sync::atomic::Ordering::Relaxed);
+        let s_dealloc = crate::allocator::DEALLOC_COUNT.load(std::sync::atomic::Ordering::Relaxed);
+        let s_dealloc_bytes =
+            crate::allocator::DEALLOC_BYTES.load(std::sync::atomic::Ordering::Relaxed);
 
         let input = std::hint::black_box(&self.input);
         let _ = std::hint::black_box((self.function)(input));
 
-        let e_alloc = crate::allocator::THREAD_ALLOC_COUNT
-            .try_with(|c| c.get())
-            .unwrap_or(0);
-        let e_bytes = crate::allocator::THREAD_ALLOC_BYTES
-            .try_with(|c| c.get())
-            .unwrap_or(0);
-        let e_dealloc = crate::allocator::THREAD_DEALLOC_COUNT
-            .try_with(|c| c.get())
-            .unwrap_or(0);
-        let e_dealloc_bytes = crate::allocator::THREAD_DEALLOC_BYTES
-            .try_with(|c| c.get())
-            .unwrap_or(0);
+        let e_alloc = crate::allocator::ALLOC_COUNT.load(std::sync::atomic::Ordering::Relaxed);
+        let e_bytes = crate::allocator::ALLOC_BYTES.load(std::sync::atomic::Ordering::Relaxed);
+        let e_dealloc = crate::allocator::DEALLOC_COUNT.load(std::sync::atomic::Ordering::Relaxed);
+        let e_dealloc_bytes =
+            crate::allocator::DEALLOC_BYTES.load(std::sync::atomic::Ordering::Relaxed);
 
         let final_cycles = if min_perf_cycles != u64::MAX {
             min_perf_cycles
@@ -277,34 +263,20 @@ where
             }
         }
 
-        let s_alloc = crate::allocator::THREAD_ALLOC_COUNT
-            .try_with(|c| c.get())
-            .unwrap_or(0);
-        let s_bytes = crate::allocator::THREAD_ALLOC_BYTES
-            .try_with(|c| c.get())
-            .unwrap_or(0);
-        let s_dealloc = crate::allocator::THREAD_DEALLOC_COUNT
-            .try_with(|c| c.get())
-            .unwrap_or(0);
-        let s_dealloc_bytes = crate::allocator::THREAD_DEALLOC_BYTES
-            .try_with(|c| c.get())
-            .unwrap_or(0);
+        let s_alloc = crate::allocator::ALLOC_COUNT.load(std::sync::atomic::Ordering::Relaxed);
+        let s_bytes = crate::allocator::ALLOC_BYTES.load(std::sync::atomic::Ordering::Relaxed);
+        let s_dealloc = crate::allocator::DEALLOC_COUNT.load(std::sync::atomic::Ordering::Relaxed);
+        let s_dealloc_bytes =
+            crate::allocator::DEALLOC_BYTES.load(std::sync::atomic::Ordering::Relaxed);
 
         let input = std::hint::black_box(&self.input);
         let _ = std::hint::black_box((self.function)(input));
 
-        let e_alloc = crate::allocator::THREAD_ALLOC_COUNT
-            .try_with(|c| c.get())
-            .unwrap_or(0);
-        let e_bytes = crate::allocator::THREAD_ALLOC_BYTES
-            .try_with(|c| c.get())
-            .unwrap_or(0);
-        let e_dealloc = crate::allocator::THREAD_DEALLOC_COUNT
-            .try_with(|c| c.get())
-            .unwrap_or(0);
-        let e_dealloc_bytes = crate::allocator::THREAD_DEALLOC_BYTES
-            .try_with(|c| c.get())
-            .unwrap_or(0);
+        let e_alloc = crate::allocator::ALLOC_COUNT.load(std::sync::atomic::Ordering::Relaxed);
+        let e_bytes = crate::allocator::ALLOC_BYTES.load(std::sync::atomic::Ordering::Relaxed);
+        let e_dealloc = crate::allocator::DEALLOC_COUNT.load(std::sync::atomic::Ordering::Relaxed);
+        let e_dealloc_bytes =
+            crate::allocator::DEALLOC_BYTES.load(std::sync::atomic::Ordering::Relaxed);
 
         Measurement::new(
             if min_cycles == u64::MAX {
