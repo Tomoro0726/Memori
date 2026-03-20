@@ -10,7 +10,11 @@ import { BenchmarkChart } from "./components/Chart";
 import { FilterHeader } from "./components/Controls";
 import { useChartData, useChartFilters, useHasScalingPattern } from "./hooks";
 import type { BenchmarkDataMap, MetricKey } from "./types";
-import { loadBenchmarkData, loadBenchmarkDataFromFileList } from "./utils/dataLoader";
+import {
+  loadBenchmarkData,
+  loadBenchmarkDataFromFileList,
+} from "./utils/dataLoader";
+import { ParameterDescription } from "./components/ParameterDescription";
 
 /** メトリック表示ラベルマップ */
 const METRICS: Array<{ key: MetricKey | "netBytes"; label: string }> = [
@@ -30,7 +34,8 @@ function getLoadFailureState(): {
   if (isFileProtocol) {
     return {
       needsLocalFolderSelection: true,
-      message: "file:// では自動ロードできません。target/memori フォルダを選択してください。",
+      message:
+        "file:// では自動ロードできません。target/memori フォルダを選択してください。",
     };
   }
 
@@ -48,7 +53,8 @@ export default function App() {
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkDataMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [needsLocalFolderSelection, setNeedsLocalFolderSelection] = useState(false);
+  const [needsLocalFolderSelection, setNeedsLocalFolderSelection] =
+    useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,7 +92,9 @@ export default function App() {
     };
   }, []);
 
-  const handleFolderSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFolderSelection = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const files = event.target.files;
     if (!files || files.length === 0) {
       return;
@@ -101,7 +109,9 @@ export default function App() {
       setNeedsLocalFolderSelection(false);
     } catch (err) {
       console.error("Failed to load local benchmark data:", err);
-      setLoadError("フォルダ内JSONの読み込みに失敗しました。target/memori を選択してください。");
+      setLoadError(
+        "フォルダ内JSONの読み込みに失敗しました。target/memori を選択してください。",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -128,9 +138,13 @@ export default function App() {
       return (
         <div className={styles.page}>
           <div className={styles.localLoadPanel}>
-            <h2 className={styles.localLoadTitle}>Local Folder Selection Required</h2>
+            <h2 className={styles.localLoadTitle}>
+              Local Folder Selection Required
+            </h2>
             <p className={styles.localLoadText}>{loadError}</p>
-            <p className={styles.localLoadText}>フォルダは target/memori を選択してください。</p>
+            <p className={styles.localLoadText}>
+              フォルダは target/memori を選択してください。
+            </p>
             <input
               className={styles.localLoadInput}
               type="file"
@@ -148,7 +162,11 @@ export default function App() {
   }
 
   if (functions.length === 0) {
-    return <div className={styles.page}>No benchmark data found. Run memori tests first!</div>;
+    return (
+      <div className={styles.page}>
+        No benchmark data found. Run memori tests first!
+      </div>
+    );
   }
 
   return (
@@ -169,7 +187,9 @@ export default function App() {
 
         <main>
           {charts.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "2rem" }}
+            >
               {charts.map((chart, idx) => (
                 <BenchmarkChart
                   key={chart.chartTitle || idx}
@@ -187,6 +207,10 @@ export default function App() {
             <div>Select a function to display the benchmark charts.</div>
           )}
         </main>
+        {/* パラメーター説明折りたたみ */}
+        <div>
+          <ParameterDescription />
+        </div>
       </div>
     </div>
   );

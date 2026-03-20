@@ -1,0 +1,98 @@
+.container {
+  margin: 1rem 0;
+  border: 1px solid #e1e4e8;
+  border-radius: 8px;
+  background: #f6f8fa; /* 薄いグレーの背景 */
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+
+.toggle {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #24292e;
+  font-weight: 600;
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.toggle:hover {
+  background: #ebf0f4;
+}
+
+.icon {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  background: #0366d6;
+  color: white;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.content {
+  padding: 1rem;
+  border-top: 1px solid #e1e4e8;
+  background: white;
+  color: #586069;
+}
+
+.section {
+  margin-bottom: 1rem;
+}
+
+.sectionTitle {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #0366d6;
+}
+
+.list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: baseline;
+}
+
+.term {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: bold;
+  color: #24292e;
+}
+
+.description {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.envList {
+  margin: 0;
+  padding-left: 1.2rem;
+  list-style-type: square;
+}
+
+.envList li {
+  margin-bottom: 0.25rem;
+}
+
+.footerNote {
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #e1e4e8;
+  font-size: 0.8rem;
+  font-style: italic;
+}

@@ -1,3 +1,32 @@
+/* パラメーター説明折りたたみ */
+.parameterDescriptionBox {
+  margin-top: 2.5rem;
+  padding: 1rem 0;
+  border-top: 1px solid #e5e7eb;
+  text-align: left;
+}
+.parameterDescriptionToggle {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #374151;
+  margin-bottom: 0.5rem;
+  transition: background 0.2s;
+}
+.parameterDescriptionToggle:hover {
+  background: #e5e7eb;
+}
+.parameterDescriptionContent {
+  background: #f9fafb;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  font-size: 0.95em;
+  color: #374151;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
 .page {
   min-height: 100vh;
   background-color: #f9fafb;
