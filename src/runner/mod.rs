@@ -1,4 +1,9 @@
 //! Core execution engine for running benchmarks.
+//!
+//! <details>
+//! <summary>Japanese</summary>
+//! ベンチマークを実行するためのコアエンジン。
+//! </details>
 
 use crate::Measurement;
 pub mod measurement;
@@ -7,6 +12,12 @@ pub mod measurement;
 ///
 /// Encapsulates the target function and input, providing high-precision
 /// measurements of CPU cycles, execution time, and memory allocations.
+///
+/// <details>
+/// <summary>Japanese</summary>
+/// ベンチマーク実行の最小単位。
+/// ターゲット関数と入力をカプセル化し、CPUサイクル、実行時間、メモリ割り当てなどを高精度に計測します。
+/// </details>
 pub struct Runner<I, F, R>
 where
     I: Clone,
@@ -22,16 +33,31 @@ where
     F: FnMut(&I) -> R,
 {
     /// Creates a new `Runner` instance.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    /// 新しい `Runner` インスタンスを生成します。
+    /// </details>
     pub fn new(input: I, function: F) -> Self {
         Self { input, function }
     }
 
     /// Returns a reference to the input value.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    /// 入力値への参照を返します。
+    /// </details>
     pub fn input(&self) -> &I {
         &self.input
     }
 
     /// Executes the benchmark and returns the measurement results.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    /// ベンチマークを実行し、計測結果を返します。
+    /// </details>
     #[cfg(target_os = "linux")]
     pub fn run(&mut self) -> Measurement {
         use perf_event::{Builder, events::Hardware};
@@ -57,7 +83,9 @@ where
         let mut min_perf_cycles = u64::MAX;
         let mut min_rdtsc_cycles = u64::MAX;
         let mut min_inst = u64::MAX;
-        let mut min_time_ns = u64::MAX;
+
+        #[cfg(feature = "real_time")]
+        let mut min_time_ns: Option<u64> = None;
 
         for _ in 0..samples {
             if let Some(c) = cycles_counter.as_mut() {
@@ -77,13 +105,17 @@ where
                 c
             };
 
+            #[cfg(feature = "real_time")]
             let start_time = std::time::Instant::now();
 
             let input = std::hint::black_box(&self.input);
             let _ = std::hint::black_box((self.function)(input));
 
-            let elapsed = start_time.elapsed().as_nanos() as u64;
-            min_time_ns = min_time_ns.min(elapsed);
+            #[cfg(feature = "real_time")]
+            {
+                let elapsed = start_time.elapsed().as_nanos() as u64;
+                min_time_ns = Some(min_time_ns.map_or(elapsed, |prev| prev.min(elapsed)));
+            }
 
             #[cfg(target_arch = "x86_64")]
             {
@@ -151,7 +183,10 @@ where
             } else {
                 Some(min_inst)
             },
-            Some(min_time_ns),
+            #[cfg(feature = "real_time")]
+            min_time_ns,
+            #[cfg(not(feature = "real_time"))]
+            None,
             e_alloc.wrapping_sub(s_alloc),
             e_bytes.wrapping_sub(s_bytes),
             e_dealloc.wrapping_sub(s_dealloc),
@@ -160,6 +195,11 @@ where
     }
 
     /// Executes the benchmark and returns the measurement results.
+    ///
+    /// <details>
+    /// <summary>Japanese</summary>
+    /// ベンチマークを実行し、計測結果を返します。
+    /// </details>
     #[cfg(not(target_os = "linux"))]
     pub fn run(&mut self) -> Measurement {
         for _ in 0..100 {
@@ -169,7 +209,9 @@ where
 
         let samples = 100;
         let mut min_cycles = u64::MAX;
-        let mut min_time_ns = u64::MAX;
+
+        #[cfg(feature = "real_time")]
+        let mut min_time_ns: Option<u64> = None;
 
         for _ in 0..samples {
             #[cfg(target_arch = "x86_64")]
@@ -180,6 +222,7 @@ where
                 c
             };
 
+            #[cfg(feature = "real_time")]
             let start_time = std::time::Instant::now();
 
             let input = std::hint::black_box(&self.input);
@@ -193,8 +236,11 @@ where
                 min_cycles = min_cycles.min(end_cycles.wrapping_sub(start_cycles));
             }
 
-            let elapsed = start_time.elapsed().as_nanos() as u64;
-            min_time_ns = min_time_ns.min(elapsed);
+            #[cfg(feature = "real_time")]
+            {
+                let elapsed = start_time.elapsed().as_nanos() as u64;
+                min_time_ns = Some(min_time_ns.map_or(elapsed, |prev| prev.min(elapsed)));
+            }
         }
 
         let s_alloc = crate::allocator::THREAD_ALLOC_COUNT
@@ -233,7 +279,10 @@ where
                 min_cycles
             },
             None,
-            Some(min_time_ns),
+            #[cfg(feature = "real_time")]
+            min_time_ns,
+            #[cfg(not(feature = "real_time"))]
+            None,
             e_alloc.wrapping_sub(s_alloc),
             e_bytes.wrapping_sub(s_bytes),
             e_dealloc.wrapping_sub(s_dealloc),

@@ -24,15 +24,14 @@ pub struct Measurement {
     /// The number of CPU cycles taken for execution.
     ///
     /// - **Linux & x86_64**: Records CPU hardware cycles using `perf_event` or `rdtsc`.
-    /// - **Other Environments**: Falls back to recording execution time in nanoseconds,
-    ///   or 0 if hardware cycle counting is completely unavailable.
+    /// - **Other Environments**: Falls back to 0 if hardware cycle counting is unavailable.
     ///
     /// <details>
     /// <summary>Japanese</summary>
     /// 実行にかかったCPUサイクル数。
     ///
     /// - **Linux および x86_64**: `perf_event` や `rdtsc` を使用してCPUハードウェアサイクルを記録します。
-    /// - **その他の環境**: 代替として実行時間（ナノ秒）が記録されます。
+    /// - **その他の環境**: 計測できない場合は0になります。
     /// </details>
     pub cycles: u64,
 
@@ -50,9 +49,12 @@ pub struct Measurement {
 
     /// The real wall-clock execution time in nanoseconds.
     ///
+    /// Only recorded if the `real_time` feature is enabled. Otherwise, this is `None`.
+    ///
     /// <details>
     /// <summary>Japanese</summary>
     /// ナノ秒単位での実実行時間（Wall-clock time）。
+    /// `real_time` フィーチャーが有効な場合のみ記録され、それ以外は `None` となります。
     /// </details>
     pub time_ns: Option<u64>,
 
