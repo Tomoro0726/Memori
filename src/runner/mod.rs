@@ -78,7 +78,6 @@ where
     /// </details>
     #[cfg(target_os = "linux")]
     pub fn run(&mut self) -> Measurement {
-        // Groupを削除し、独立して扱う
         use perf_event::{Builder, events::Hardware};
 
         // ウォームアップ
@@ -86,12 +85,10 @@ where
             std::hint::black_box((self.function)(&self.input));
         }
 
+        // 1. カウンタを個別に作成
         let mut cycles_counter = {
-            // Builder::new() と .kind() は所有権を返すので繋げてOK
             let mut b = Builder::new().kind(Hardware::CPU_CYCLES);
-            // exclude_kernel は &mut (参照) を返すので単独の行で呼ぶ
             b.exclude_kernel(true);
-            // 変数 b 本体から build() を呼んで所有権を消費する
             b.build().ok()
         };
 
@@ -102,12 +99,12 @@ where
         };
 
         let samples = 100;
-        let mut min_cycles = u64::MAX;
+        let mut min_perf_cycles = u64::MAX;
+        let mut min_rdtsc_cycles = u64::MAX;
         let mut min_inst = u64::MAX;
         let mut min_time_ns: Option<u64> = None;
 
         for _ in 0..samples {
-            // それぞれ独立してリセット＆開始
             if let Some(c) = cycles_counter.as_mut() {
                 let _ = c.reset();
                 let _ = c.enable();
@@ -117,27 +114,49 @@ where
                 let _ = i.enable();
             }
 
-            #[cfg(feature = "real_time")]
+            // RDTSC計測開始 (VM環境用フォールバック)
+            #[cfg(target_arch = "x86_64")]
+            let start_rdtsc = unsafe {
+                core::arch::x86_64::_mm_lfence();
+                let c = core::arch::x86_64::_rdtsc();
+                core::arch::x86_64::_mm_lfence();
+                c
+            };
+
             let start_time = std::time::Instant::now();
 
             std::hint::black_box((self.function)(&self.input));
 
-            #[cfg(feature = "real_time")]
-            {
-                let elapsed = start_time.elapsed().as_nanos() as u64;
-                match min_time_ns {
-                    Some(prev) => {
-                        if elapsed < prev {
-                            min_time_ns = Some(elapsed);
-                        }
+            let elapsed_ns = start_time.elapsed().as_nanos() as u64;
+
+            // RDTSC計測終了
+            #[cfg(target_arch = "x86_64")]
+            let end_rdtsc = unsafe {
+                let mut aux = 0;
+                let c = core::arch::x86_64::__rdtscp(&mut aux);
+                core::arch::x86_64::_mm_lfence();
+                c
+            };
+
+            match min_time_ns {
+                Some(prev) => {
+                    if elapsed_ns < prev {
+                        min_time_ns = Some(elapsed_ns);
                     }
-                    None => {
-                        min_time_ns = Some(elapsed);
-                    }
+                }
+                None => {
+                    min_time_ns = Some(elapsed_ns);
                 }
             }
 
-            // それぞれ独立して停止＆読み取り
+            #[cfg(target_arch = "x86_64")]
+            {
+                let elapsed_rdtsc = end_rdtsc - start_rdtsc;
+                if elapsed_rdtsc < min_rdtsc_cycles {
+                    min_rdtsc_cycles = elapsed_rdtsc;
+                }
+            }
+
             if let Some(i) = inst_counter.as_mut() {
                 let _ = i.disable();
                 if let Ok(count) = i.read() {
@@ -149,8 +168,8 @@ where
             if let Some(c) = cycles_counter.as_mut() {
                 let _ = c.disable();
                 if let Ok(count) = c.read() {
-                    if count < min_cycles {
-                        min_cycles = count;
+                    if count < min_perf_cycles {
+                        min_perf_cycles = count;
                     }
                 }
             }
@@ -168,12 +187,15 @@ where
         let end_deallocs = crate::DEALLOC_COUNT.load(Ordering::SeqCst);
         let end_dealloc_bytes = crate::DEALLOC_BYTES.load(Ordering::SeqCst);
 
-        // フォールバック処理
-        let final_cycles = if min_cycles == u64::MAX {
-            0
+        // ★ 最高のサイクル数決定ロジック
+        let final_cycles = if min_perf_cycles != u64::MAX {
+            min_perf_cycles // 物理Linuxなら、最も正確な perf_event の実サイクル数を採用
+        } else if min_rdtsc_cycles != u64::MAX {
+            min_rdtsc_cycles // GitHub Actions等のVM環境なら、RDTSCによるリファレンスサイクル数を採用
         } else {
-            min_cycles
+            0
         };
+
         let final_inst = if min_inst == u64::MAX {
             None
         } else {

@@ -33,7 +33,7 @@ jobs:
         run: |
           mkdir -p target/memori
           if [ -d "gh-pages-branch" ]; then
-            rsync -a --exclude='.git' gh-pages-branch/ target/memori/
+            rsync -a --exclude='.git' gh-pages-branch/Memori/ target/memori/
           fi
 
       - name: Allow perf_event (for Hardware Metrics)
