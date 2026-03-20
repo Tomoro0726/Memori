@@ -1,0 +1,49 @@
+name: Memori Benchmark & Deploy Template
+
+on:
+  workflow_call:
+    inputs:
+      pages_branch:
+        description: "GitHub Pagesを管理するブランチ名"
+        required: false
+        type: string
+        default: "gh-pages"
+
+jobs:
+  benchmark-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Checkout previous history
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.pages_branch }}
+          path: gh-pages-branch
+        continue-on-error: true
+
+      - name: Restore benchmark history
+        run: |
+          mkdir -p target/memori
+          if [ -d "gh-pages-branch" ]; then
+            rsync -a --exclude='.git' gh-pages-branch/ target/memori/
+          fi
+
+      - name: Run Memori Benchmarks
+        run: cargo bench
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ github.token }}
+          publish_dir: ./target/memori
+          publish_branch: ${{ inputs.pages_branch }}
+          keep_files: false
+          commit_message: "docs(memori): update benchmark report [skip ci]"
