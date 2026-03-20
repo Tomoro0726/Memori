@@ -4,16 +4,13 @@ use std::sync::atomic::Ordering;
 
 /// The minimal execution unit for running benchmarks.
 ///
-/// It encapsulates the target function and a specific input value, providing highly accurate
+/// Encapsulates the target function and input, providing high-precision
 /// measurements of CPU cycles, execution time, and memory allocations.
 ///
 /// <details>
 /// <summary>Japanese</summary>
-///
 /// ベンチマーク実行の最小単位です。
-///
-/// ターゲットとなる関数と特定の入力値をカプセル化し、CPUサイクル数、実行時間、
-/// およびメモリアロケーションの高精度な計測を提供します。
+/// ターゲット関数と入力をカプセル化し、CPUサイクル、実行時間、メモリ割り当てを高精度に計測します。
 /// </details>
 pub struct Runner<I, F, R>
 where
@@ -30,62 +27,29 @@ where
     F: FnMut(&I) -> R,
 {
     /// Creates a new `Runner` instance.
-    ///
-    /// # Arguments
-    /// * `input` - The input value to be passed to the benchmark function.
-    /// * `function` - The closure or function to be benchmarked.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    ///
-    /// 新しい `Runner` インスタンスを作成します。
-    ///
-    /// # 引数
-    /// * `input` - ベンチマーク関数に渡される入力値。
-    /// * `function` - ベンチマーク対象のクロージャまたは関数。
-    /// </details>
     pub fn new(input: I, function: F) -> Self {
-        Runner { input, function }
+        Self { input, function }
     }
 
-    /// Returns a reference to the input value used for this benchmark run.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    ///
-    /// このベンチマーク実行で使用される入力値への参照を返します。
-    /// </details>
+    /// Returns a reference to the input value.
     pub fn input(&self) -> &I {
         &self.input
     }
 
     /// Executes the benchmark and returns the measurement results.
     ///
-    /// This method performs the following steps:
-    /// 1. **Warm-up**: Executes the function several times to warm up the CPU cache.
-    /// 2. **Sampling**: Runs the function multiple times to find the minimum CPU cycles (and real time if the `real_time` feature is enabled) to filter out OS noise.
-    /// 3. **Allocation Tracking**: Executes the function exactly once while tracking global memory allocations and deallocations.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    ///
-    /// ベンチマークを実行し、計測結果を返します。
-    ///
-    /// このメソッドは以下のステップを実行します：
-    /// 1. **ウォームアップ**: CPUキャッシュを温めるために関数を複数回実行します。
-    /// 2. **サンプリング**: 関数を複数回実行し、OSのノイズを排除するために最小のCPUサイクル数（`real_time`機能が有効な場合は実時間も）を取得します。
-    /// 3. **アロケーション追跡**: グローバルなメモリの割り当てと解放を追跡しながら、関数を正確に1回実行します。
-    /// </details>
+    /// 1. **Warm-up**: Stabilizes CPU cache.
+    /// 2. **Sampling**: Runs multiple iterations to find the minimum values (filtering noise).
+    /// 3. **Allocation Tracking**: Tracks memory via global hooks during a single execution.
     #[cfg(target_os = "linux")]
     pub fn run(&mut self) -> Measurement {
         use perf_event::{Builder, events::Hardware};
 
-        // ウォームアップ
         for _ in 0..100 {
             std::hint::black_box((self.function)(&self.input));
         }
 
-        // 1. カウンタを個別に作成
+        // Use independent counters to avoid data size mismatch panics in VM environments.
         let mut cycles_counter = {
             let mut b = Builder::new().kind(Hardware::CPU_CYCLES);
             b.exclude_kernel(true);
@@ -129,49 +93,28 @@ where
 
             #[cfg(feature = "real_time")]
             {
-                let elapsed_ns = start_time.elapsed().as_nanos() as u64;
-                match min_time_ns {
-                    Some(prev) => {
-                        if elapsed_ns < prev {
-                            min_time_ns = Some(elapsed_ns);
-                        }
-                    }
-                    None => {
-                        min_time_ns = Some(elapsed_ns);
-                    }
-                }
+                let elapsed = start_time.elapsed().as_nanos() as u64;
+                min_time_ns = Some(min_time_ns.map_or(elapsed, |prev| prev.min(elapsed)));
             }
 
             #[cfg(target_arch = "x86_64")]
-            let end_rdtsc = unsafe {
-                let mut aux = 0;
-                let c = core::arch::x86_64::__rdtscp(&mut aux);
-                core::arch::x86_64::_mm_lfence();
-                c
-            };
-
-            #[cfg(target_arch = "x86_64")]
             {
-                let elapsed_rdtsc = end_rdtsc - start_rdtsc;
-                if elapsed_rdtsc < min_rdtsc_cycles {
-                    min_rdtsc_cycles = elapsed_rdtsc;
-                }
+                let mut aux = 0;
+                let end_rdtsc = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
+                unsafe { core::arch::x86_64::_mm_lfence() };
+                min_rdtsc_cycles = min_rdtsc_cycles.min(end_rdtsc - start_rdtsc);
             }
 
             if let Some(i) = inst_counter.as_mut() {
                 let _ = i.disable();
                 if let Ok(count) = i.read() {
-                    if count < min_inst {
-                        min_inst = count;
-                    }
+                    min_inst = min_inst.min(count);
                 }
             }
             if let Some(c) = cycles_counter.as_mut() {
                 let _ = c.disable();
                 if let Ok(count) = c.read() {
-                    if count < min_perf_cycles {
-                        min_perf_cycles = count;
-                    }
+                    min_perf_cycles = min_perf_cycles.min(count);
                 }
             }
         }
@@ -196,15 +139,13 @@ where
             0
         };
 
-        let final_inst = if min_inst == u64::MAX {
-            None
-        } else {
-            Some(min_inst)
-        };
-
         Measurement::new(
             final_cycles,
-            final_inst,
+            if min_inst == u64::MAX {
+                None
+            } else {
+                Some(min_inst)
+            },
             #[cfg(feature = "real_time")]
             min_time_ns.or(Some(0)),
             #[cfg(not(feature = "real_time"))]
@@ -215,23 +156,7 @@ where
             end_dealloc_bytes - start_dealloc_bytes,
         )
     }
-    /// Executes the benchmark and returns the measurement results.
-    ///
-    /// This method performs the following steps:
-    /// 1. **Warm-up**: Executes the function several times to warm up the CPU cache.
-    /// 2. **Sampling**: Runs the function multiple times to find the minimum CPU cycles (and real time if the `real_time` feature is enabled) to filter out OS noise.
-    /// 3. **Allocation Tracking**: Executes the function exactly once while tracking global memory allocations and deallocations.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    ///
-    /// ベンチマークを実行し、計測結果を返します。
-    ///
-    /// このメソッドは以下のステップを実行します：
-    /// 1. **ウォームアップ**: CPUキャッシュを温めるために関数を複数回実行します。
-    /// 2. **サンプリング**: 関数を複数回実行し、OSのノイズを排除するために最小のCPUサイクル数（`real_time`機能が有効な場合は実時間も）を取得します。
-    /// 3. **アロケーション追跡**: グローバルなメモリの割り当てと解放を追跡しながら、関数を正確に1回実行します。
-    /// </details>
+
     #[cfg(not(target_os = "linux"))]
     pub fn run(&mut self) -> Measurement {
         for _ in 0..100 {
@@ -242,65 +167,40 @@ where
         let mut min_cycles = u64::MAX;
         let mut min_time_ns: Option<u64> = None;
 
-        #[cfg(target_arch = "x86_64")]
-        {
-            use core::arch::x86_64::{__rdtscp, _mm_lfence, _rdtsc};
-            for _ in 0..samples {
-                unsafe {
-                    _mm_lfence();
-                    let start_cycles = _rdtsc();
-                    _mm_lfence();
+        for _ in 0..samples {
+            #[cfg(target_arch = "x86_64")]
+            let start_cycles = unsafe {
+                core::arch::x86_64::_mm_lfence();
+                let c = core::arch::x86_64::_rdtsc();
+                core::arch::x86_64::_mm_lfence();
+                c
+            };
 
-                    let start_time = std::time::Instant::now();
-                    std::hint::black_box((self.function)(&self.input));
-                    let elapsed_time = start_time.elapsed().as_nanos() as u64;
+            #[cfg(feature = "real_time")]
+            let start_time = std::time::Instant::now();
 
-                    // timeNs: always measure
-                    match min_time_ns {
-                        Some(prev) => {
-                            if elapsed_time < prev {
-                                min_time_ns = Some(elapsed_time);
-                            }
-                        }
-                        None => {
-                            min_time_ns = Some(elapsed_time);
-                        }
-                    }
+            std::hint::black_box((self.function)(&self.input));
 
-                    let mut aux: u32 = 0;
-                    let end_cycles = __rdtscp(&mut aux);
-                    _mm_lfence();
-
-                    let elapsed_cycles = end_cycles - start_cycles;
-                    if elapsed_cycles < min_cycles {
-                        min_cycles = elapsed_cycles;
-                    }
-                }
+            #[cfg(feature = "real_time")]
+            {
+                let elapsed = start_time.elapsed().as_nanos() as u64;
+                min_time_ns = Some(min_time_ns.map_or(elapsed, |prev| prev.min(elapsed)));
             }
-        }
 
-        #[cfg(not(target_arch = "x86_64"))]
-        {
-            for _ in 0..samples {
-                let start = std::time::Instant::now();
-                std::hint::black_box((self.function)(&self.input));
-                let elapsed = start.elapsed().as_nanos() as u64;
-                if elapsed < min_cycles {
-                    min_cycles = elapsed;
-                }
-                #[cfg(feature = "real_time")]
-                {
-                    match min_time_ns {
-                        Some(prev) => {
-                            if elapsed < prev {
-                                min_time_ns = Some(elapsed);
-                            }
-                        }
-                        None => {
-                            min_time_ns = Some(elapsed);
-                        }
-                    }
-                }
+            #[cfg(target_arch = "x86_64")]
+            {
+                let mut aux = 0;
+                let end_cycles = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
+                unsafe { core::arch::x86_64::_mm_lfence() };
+                min_cycles = min_cycles.min(end_cycles - start_cycles);
+            }
+
+            #[cfg(not(target_arch = "x86_64"))]
+            {
+                #[cfg(not(feature = "real_time"))]
+                let start_time = std::time::Instant::now();
+                let elapsed = start_time.elapsed().as_nanos() as u64;
+                min_cycles = min_cycles.min(elapsed);
             }
         }
 
@@ -311,19 +211,21 @@ where
 
         std::hint::black_box((self.function)(&self.input));
 
-        let end_allocs = crate::ALLOC_COUNT.load(Ordering::SeqCst);
-        let end_bytes = crate::ALLOC_BYTES.load(Ordering::SeqCst);
-        let end_deallocs = crate::DEALLOC_COUNT.load(Ordering::SeqCst);
-        let end_dealloc_bytes = crate::DEALLOC_BYTES.load(Ordering::SeqCst);
-
         Measurement::new(
-            min_cycles,
+            if min_cycles == u64::MAX {
+                0
+            } else {
+                min_cycles
+            },
             None,
-            min_time_ns.or(Some(0)), // ← 実時間が取得できない場合は0を記録
-            end_allocs - start_allocs,
-            end_bytes - start_bytes,
-            end_deallocs - start_deallocs,
-            end_dealloc_bytes - start_dealloc_bytes,
+            #[cfg(feature = "real_time")]
+            min_time_ns.or(Some(0)),
+            #[cfg(not(feature = "real_time"))]
+            None,
+            crate::ALLOC_COUNT.load(Ordering::SeqCst) - start_allocs,
+            crate::ALLOC_BYTES.load(Ordering::SeqCst) - start_bytes,
+            crate::DEALLOC_COUNT.load(Ordering::SeqCst) - start_deallocs,
+            crate::DEALLOC_BYTES.load(Ordering::SeqCst) - start_dealloc_bytes,
         )
     }
 }
