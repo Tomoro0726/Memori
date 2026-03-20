@@ -28,6 +28,7 @@ export interface BenchJsonEntry {
 export interface BenchJsonReport {
   patternType: "instant" | "scaling";
   description?: string;
+  comment?: string;
   results: Record<string, BenchJsonEntry[]>;
 }
 

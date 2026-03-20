@@ -15,15 +15,6 @@ import type {
 
 type ChartDataPoint = Record<string, unknown>;
 
-/**
- * グラフラベルリストに新しいアルゴリズムを追加（重複チェック付き）
- * @param lineInfos - グラフラベル列
- * @param addedLineKeys - 既に追加されたキーセット
- * @param key - Recharts用のユニークキー
- * @param algoName - アルゴリズム名
- * @param runLabel - 実行ラベル
- * @param runIndex - 実行インデックス
- */
 function addLineInfoIfNew(
   lineInfos: LineInfo[],
   addedLineKeys: Set<string>,
@@ -38,13 +29,6 @@ function addLineInfoIfNew(
   }
 }
 
-/**
- * Instant パターンのデータポイントに測定値を追加
- * @param algoName - アルゴリズム名
- * @param entries - ベンチマークエントリー
- * @param selectedMetric - 表示するメトリック
- * @param dataPoint - データポイント（参照経由で変更）
- */
 function addInstantMetricToPoint(
   algoName: string,
   entries: BenchJsonEntry[],
@@ -71,13 +55,6 @@ function addInstantMetricToPoint(
   }
 }
 
-/**
- * Scaling パターンのマップに測定値を追加
- * @param entries - ベンチマークエントリー
- * @param selectedMetric - 表示するメトリック
- * @param lineKey - グラフラベルキー
- * @param mergedMap - 入力サイズごとのデータマップ（参照経由で変更）
- */
 function addScalingMetricsToMap(
   entries: BenchJsonEntry[],
   selectedMetric: MetricKey | "netBytes",
@@ -99,18 +76,6 @@ function addScalingMetricsToMap(
   }
 }
 
-/**
- * 単一の実行履歴を Instant パターンで処理
- * @param run - 実行履歴データ
- * @param index - 実行インデックス
- * @param targetRunsLength - 対象実行数
- * @param selectedPattern - 選択パターン
- * @param selectedMetric - 選択メトリック
- * @param dataMap - データマップ（参照経由で変更）
- * @param lineInfos - グラフラベルリスト（参照経由で変更）
- * @param addedLineKeys - 追加済みキーセット（参照経由で変更）
- * @returns パターンの説明文（最新の場合のみ）
- */
 function processInstantPatternRun(
   run: BenchmarkDataMap[string]["history"][number],
   index: number,
@@ -121,12 +86,15 @@ function processInstantPatternRun(
   lineInfos: LineInfo[],
   addedLineKeys: Set<string>,
 ): string {
-  const runNum = run.fileName.split("_")[0];
-  const isLatest = index === targetRunsLength - 1;
-  const runLabel = isLatest ? "Latest" : `Run-${runNum}`;
-
+  const runNum = run.fileName.replace(/\.json$/i, "").split("_")[0];
   const patternData = run.data[selectedPattern];
   if (!patternData) return "";
+
+  const isLatest = index === targetRunsLength - 1;
+  const commentStr = patternData.comment ? ` (${patternData.comment})` : "";
+  const runLabel = isLatest
+    ? `Latest${commentStr}`
+    : `Run-${runNum}${commentStr}`;
 
   const dataPoint: ChartDataPoint = { run: runLabel };
 
@@ -142,14 +110,6 @@ function processInstantPatternRun(
   return isLatest ? patternData.description || "" : "";
 }
 
-/**
- * Instant パターンのすべての実行履歴を処理してグラフ状態を生成
- * @param funcData - 関数データ
- * @param selectedPattern - 選択パターン
- * @param selectedMetric - 選択メトリック
- * @param metricLabels - メトリック表示ラベルマップ
- * @returns グラフ表示用の状態
- */
 export function processInstantPattern(
   funcData: BenchmarkDataMap[string],
   selectedPattern: string,
@@ -188,18 +148,6 @@ export function processInstantPattern(
   };
 }
 
-/**
- * 単一の実行履歴を Scaling パターンで処理
- * @param run - 実行履歴データ
- * @param index - 実行インデックス
- * @param selectedPattern - 選択パターン
- * @param selectedMetric - 選択メトリック
- * @param historyCount - 比較対象実行数
- * @param mergedMap - マージされたデータマップ（参照経由で変更）
- * @param lineInfos - グラフラベルリスト（参照経由で変更）
- * @param addedLineKeys - 追加済みキーセット（参照経由で変更）
- * @returns パターンの説明文（最初のみ）
- */
 function processScalingPatternRun(
   run: BenchmarkDataMap[string]["history"][number],
   index: number,
@@ -211,13 +159,16 @@ function processScalingPatternRun(
   addedLineKeys: Set<string>,
 ): string {
   const runNum = run.fileName.replace(/\.json$/i, "").split("_")[0];
-  const runLabel = index === 0 ? "Latest" : `Run-${runNum}`;
   const patternData = run.data[selectedPattern];
 
   if (!patternData) return "";
 
+  const commentStr = patternData.comment ? ` (${patternData.comment})` : "";
+  const runLabel =
+    index === 0 ? `Latest${commentStr}` : `Run-${runNum}${commentStr}`;
+
   for (const [algoName, entries] of Object.entries(patternData.results)) {
-    const lineKey = isSingleRun ? algoName : `${algoName} (${runLabel})`;
+    const lineKey = isSingleRun ? algoName : `${algoName} [${runLabel}]`;
     addLineInfoIfNew(
       lineInfos,
       addedLineKeys,
@@ -232,15 +183,6 @@ function processScalingPatternRun(
   return index === 0 ? patternData.description || "" : "";
 }
 
-/**
- * Scaling パターンのすべての実行履歴を処理してグラフ状態を生成
- * @param funcData - 関数データ
- * @param selectedPattern - 選択パターン
- * @param selectedMetric - 選択メトリック
- * @param historyCount - 比較対象実行数
- * @param metricLabels - メトリック表示ラベルマップ
- * @returns グラフ表示用の状態
- */
 export function processScalingPattern(
   funcData: BenchmarkDataMap[string],
   selectedPattern: string,

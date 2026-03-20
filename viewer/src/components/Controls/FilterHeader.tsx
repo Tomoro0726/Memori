@@ -9,32 +9,18 @@ import styles from "../../App.module.css";
 import type { BenchmarkDataMap, MetricKey } from "../../types";
 
 interface FilterHeaderProps {
-  /** すべての関数リスト */
   functions: string[];
-  /** 選択されている関数 */
   selectedFunc: string;
-  /** 関数選択時のコールバック */
   onSelectFunc: (func: string) => void;
-  /** ベンチマークデータ */
   benchmarkData: BenchmarkDataMap;
-  /** メトリックのラベルマップ */
   metricLabels: Array<{ key: MetricKey | string; label: string }>;
-  /** 選択されているメトリック */
   selectedMetric: MetricKey;
-  /** メトリック選択時のコールバック */
   onSelectMetric: (metric: MetricKey) => void;
-  /** Scalingパターンが存在するかどうか（Compare History表示用） */
   hasScaling: boolean;
-  /** 選択されている実行履歴インデックス群 */
   selectedRuns: number[];
-  /** 実行履歴トグル時のコールバック */
   onToggleSelectedRun: (runIndex: number) => void;
 }
 
-/**
- * ページトップのフィルターヘッダーコンポーネント
- * グラフ表示のためのフィルター条件を選択するインターフェース を提供
- */
 export const FilterHeader: React.FC<FilterHeaderProps> = ({
   functions,
   selectedFunc,
@@ -107,11 +93,26 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
 
               <div className={styles.historyChecks}>
                 {historyRuns.map((run, index) => {
-                  const runNum = run.fileName.replace(/\.json$/i, "").split("_")[0];
-                  const runLabel = index === 0 ? "Latest" : `Run-${runNum}`;
+                  const runNum = run.fileName
+                    .replace(/\.json$/i, "")
+                    .split("_")[0];
+
+                  // Extract comment from the first pattern available
+                  const firstPattern = Object.values(run.data)[0];
+                  const commentStr = firstPattern?.comment
+                    ? ` (${firstPattern.comment})`
+                    : "";
+
+                  const runLabel =
+                    index === 0
+                      ? `Latest${commentStr}`
+                      : `Run-${runNum}${commentStr}`;
 
                   return (
-                    <label key={run.fileName} className={styles.historyCheckItem}>
+                    <label
+                      key={run.fileName}
+                      className={styles.historyCheckItem}
+                    >
                       <input
                         type="checkbox"
                         checked={selectedRuns.includes(index)}

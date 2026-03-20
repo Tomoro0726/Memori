@@ -22,6 +22,9 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+
       - name: Checkout previous history
         uses: actions/checkout@v4
         with:
@@ -39,7 +42,15 @@ jobs:
       - name: Allow perf_event (for Hardware Metrics)
         run: sudo sysctl -w kernel.perf_event_paranoid=-1
 
+      - name: Get Commit Info
+        id: commit_info
+        run: |
+          echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "msg=$(git log -1 --pretty=%s)" >> $GITHUB_OUTPUT
+
       - name: Run Memori Benchmarks
+        env:
+          MEMORI_COMMENT: "${{ steps.commit_info.outputs.short_sha }} - ${{ steps.commit_info.outputs.msg }}"
         run: cargo bench
 
       - name: Deploy to GitHub Pages
@@ -50,4 +61,4 @@ jobs:
           publish_branch: ${{ inputs.pages_branch }}
           destination_dir: Memori
           keep_files: false
-          commit_message: "update benchmark report [skip ci]"
+          commit_message: "update benchmark report (${{ steps.commit_info.outputs.short_sha }}) [skip ci]"

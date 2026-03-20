@@ -9,29 +9,18 @@ use std::path::{Path, PathBuf};
 
 /// A structured report for a single benchmark pattern, containing results for all registered functions.
 /// Designed for JSON serialization to be consumed by the viewer.
-///
-/// <details>
-/// <summary>Japanese</summary>
-///
-/// 単一のベンチマークパターンに対する構造化されたレポートです。
-/// 登録された全関数の結果が含まれており、ビューワーで読み込むためのJSONシリアライズに使用されます。
-/// </details>
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BenchJsonReport<I> {
     pub pattern_type: String, // "instant" または "scaling"
     pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
     // 関数名をキーにして、その計測結果の配列を保持する
     pub results: BTreeMap<String, Vec<BenchJsonEntry<I>>>,
 }
 
 /// A single data point representing the measurement result for a specific input size.
-///
-/// <details>
-/// <summary>Japanese</summary>
-///
-/// 特定の入力サイズに対する計測結果を表す単一のデータポイントです。
-/// </details>
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BenchJsonEntry<I> {
@@ -40,14 +29,6 @@ pub struct BenchJsonEntry<I> {
 }
 
 /// Metadata for the entire benchmark suite.
-/// Saved as `main.json` to act as an index/manifest for the frontend viewer.
-///
-/// <details>
-/// <summary>Japanese</summary>
-///
-/// ベンチマークスイート全体のメタデータです。
-/// フロントエンドのビューワー用の目次（マニフェスト）として `main.json` に保存されます。
-/// </details>
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct FuncMetadata {
@@ -58,12 +39,6 @@ pub struct FuncMetadata {
 }
 
 /// Metadata describing a specific benchmark pattern.
-///
-/// <details>
-/// <summary>Japanese</summary>
-///
-/// 特定のベンチマークパターンを説明するメタデータです。
-/// </details>
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PatternMetadata {
@@ -88,20 +63,8 @@ struct FunctionDataManifest {
 
 impl<I> Func<I>
 where
-    I: Clone + serde::Serialize + std::fmt::Display + 'static, // 表示用に Display を追加
+    I: Clone + serde::Serialize + std::fmt::Display + 'static,
 {
-    /// Executes the full matrix of benchmarks with a rich CLI progress animation and
-    /// automatically saves the results as JSON files in the `target/memori` directory.
-    /// Generates a master `report.html` that aggregates all benchmarks.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    ///
-    /// 【公開API】リッチなCLIプログレスアニメーションと共にすべてのベンチマークを実行し、
-    /// 結果を自動的に `target/memori` ディレクトリ以下にJSONファイルとして保存します。
-    /// さらに、`target/memori/report.html` と `target/memori/report-manifest.json` を生成します。
-    /// HTML本体には結果を埋め込まず、ビューアーはフォルダ内のJSONをmanifest経由で参照します。
-    /// </details>
     pub fn run_and_save(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let base_path = PathBuf::from("target/memori").join(&self.name);
         fs::create_dir_all(&base_path)?;
@@ -117,25 +80,21 @@ where
         let json_data = serde_json::to_string_pretty(&report_map)?;
         fs::write(history_path, json_data)?;
 
-        // 2. マスター report.html を生成（target/memori 直下）
+        // 2. マスター report.html を生成
         Self::generate_master_report()?;
 
         Ok(())
     }
 
-    /// The core execution loop for benchmarks. Handles both silent and animated CLI execution.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    ///
-    /// 【内部API】ベンチマークのコア実行ループです。
-    /// `show_progress` フラグによって、静かな実行とアニメーション付きのCLI実行を切り替えます。
-    /// </details>
     fn execute_core(&mut self, show_progress: bool) -> BTreeMap<String, BenchJsonReport<I>> {
         let mut report_map = BTreeMap::new();
+        let comment = std::env::var("MEMORI_COMMENT").ok();
 
         if show_progress {
             println!("Start: {}", self.name);
+            if let Some(ref c) = comment {
+                println!(" ├─ Comment: {}", c);
+            }
         }
 
         for pattern in &self.patterns {
@@ -202,6 +161,7 @@ where
                 BenchJsonReport {
                     pattern_type: pattern_type.to_string(),
                     description: pattern.description.clone(),
+                    comment: comment.clone(),
                     results: pattern_results,
                 },
             );
@@ -209,14 +169,6 @@ where
         report_map
     }
 
-    /// Updates the `main.json` metadata file if the suite configuration has changed.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    ///
-    /// スイートの構成（関数やパターンの追加など）が変更されている場合、
-    /// `main.json` メタデータファイルを最新化します。
-    /// </details>
     fn update_main_json(&self, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         let main_path = path.join("main.json");
         let current_meta = FuncMetadata {
@@ -258,13 +210,6 @@ where
         Ok(())
     }
 
-    /// Determines the next available sequential number for saving history files.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    ///
-    /// 履歴ファイルを保存するための、次に利用可能な連番（例: 001, 002）を決定します。
-    /// </details>
     fn get_next_file_number(&self, path: &Path) -> u32 {
         fs::read_dir(path)
             .map(|dir| {
@@ -272,8 +217,6 @@ where
                     .filter_map(|e| {
                         let name = e.file_name();
                         let name = name.to_str()?;
-
-                        // Support both legacy `001_YYYY-MM-DD.json` and current `001.json`.
                         let base = name.trim_end_matches(".json");
                         let prefix = base.split('_').next()?;
                         prefix.parse::<u32>().ok()
@@ -285,21 +228,9 @@ where
             .unwrap_or(1)
     }
 
-    /// Generates `report.html` and `report-manifest.json` in `target/memori`.
-    ///
-    /// `report.html` keeps only the viewer shell, while `report-manifest.json` stores
-    /// relative JSON paths that the viewer loads at runtime.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    ///
-    /// 【内部API】`target/memori` 直下に `report.html` と `report-manifest.json` を生成します。
-    /// HTMLにはデータ本体を埋め込まず、manifestにある相対パス経由でフォルダ内JSONを読み込みます。
-    /// </details>
     fn generate_master_report() -> Result<(), Box<dyn std::error::Error>> {
         let memori_root = PathBuf::from("target/memori");
 
-        // target/memori が存在します確認
         if !memori_root.exists() {
             return Ok(());
         }
@@ -308,7 +239,6 @@ where
         let mut function_manifests = Vec::new();
         let mut embedded_data = BTreeMap::new();
 
-        // target/memori 直下のすべてのディレクトリを走査
         if let Ok(entries) = fs::read_dir(&memori_root) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -333,10 +263,8 @@ where
                     None
                 };
 
-                // 該当ディレクトリ内のすべてのJSONファイルを読み込む
                 if let Ok(files) = fs::read_dir(&path) {
                     let mut file_entries: Vec<_> = files.filter_map(|e| e.ok()).collect();
-                    // 降順（新しい順）にソート
                     file_entries.sort_by_key(|a| std::cmp::Reverse(a.file_name()));
 
                     for entry in file_entries {
@@ -416,21 +344,15 @@ where
         println!("Output report.html");
         if let Ok(cwd) = std::env::current_dir() {
             let abs_report = cwd.join(&memori_root).join("report.html");
-            // let abs_manifest = cwd.join(&memori_root).join("report-manifest.json");
-
-            // Windows環境でもブラウザで開きやすいように \ を / に置換
             let report_url = abs_report.to_string_lossy().replace('\\', "/");
-            // let manifest_url = abs_manifest.to_string_lossy().replace('\\', "/");
 
             #[cfg(target_os = "windows")]
             {
                 println!("   file:///{}", report_url);
-                // println!("   file:///{}", manifest_url);
             }
             #[cfg(not(target_os = "windows"))]
             {
                 println!("   file://{}", report_url);
-                // println!("   file://{}", manifest_url);
             }
         }
 
