@@ -23,15 +23,17 @@ use serde::Serialize;
 pub struct Measurement {
     /// The number of CPU cycles taken for execution.
     ///
-    /// - **Linux & x86_64**: Records CPU hardware cycles using `perf_event` or `rdtsc`.
-    /// - **Other Environments**: Falls back to 0 if hardware cycle counting is unavailable.
+    /// - **Linux**: Records CPU hardware cycles using `perf_event` with fallback to `rdtsc`/`cntvct_el0`.
+    /// - **macOS / Windows (x86_64)**: Uses `rdtsc`.
+    /// - **macOS / Windows (aarch64)**: Uses `cntvct_el0` (e.g., Apple Silicon).
     ///
     /// <details>
     /// <summary>Japanese</summary>
     /// 実行にかかったCPUサイクル数。
     ///
-    /// - **Linux および x86_64**: `perf_event` や `rdtsc` を使用してCPUハードウェアサイクルを記録します。
-    /// - **その他の環境**: 計測できない場合は0になります。
+    /// - **Linux**: `perf_event` を使用。
+    /// - **macOS / Windows (x86_64)**: `rdtsc` を使用して記録します。
+    /// - **macOS / Windows (aarch64)**: `cntvct_el0` を使用して記録します。(例: Apple Silicon)
     /// </details>
     pub cycles: u64,
 
@@ -101,11 +103,6 @@ pub struct Measurement {
 
 impl Measurement {
     /// Creates a new measurement data instance.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    /// 新しい計測データインスタンスを作成します。
-    /// </details>
     pub fn new(
         cycles: u64,
         instructions: Option<u64>,
@@ -127,12 +124,7 @@ impl Measurement {
         }
     }
 
-    /// Calculates the net number of allocations (allocations minus deallocations).
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    /// 正味のメモリ確保回数（確保回数 - 解放回数）を計算します。
-    /// </details>
+    /// Calculates the net number of allocations.
     pub fn net_allocs(&self) -> isize {
         (self.alloc_count as isize) - (self.dealloc_count as isize)
     }

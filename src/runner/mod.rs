@@ -33,31 +33,16 @@ where
     F: FnMut(&I) -> R,
 {
     /// Creates a new `Runner` instance.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    /// 新しい `Runner` インスタンスを生成します。
-    /// </details>
     pub fn new(input: I, function: F) -> Self {
         Self { input, function }
     }
 
     /// Returns a reference to the input value.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    /// 入力値への参照を返します。
-    /// </details>
     pub fn input(&self) -> &I {
         &self.input
     }
 
     /// Executes the benchmark and returns the measurement results.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    /// ベンチマークを実行し、計測結果を返します。
-    /// </details>
     #[cfg(target_os = "linux")]
     pub fn run(&mut self) -> Measurement {
         use perf_event::{Builder, events::Hardware};
@@ -81,7 +66,7 @@ where
 
         let samples = 100;
         let mut min_perf_cycles = u64::MAX;
-        let mut min_rdtsc_cycles = u64::MAX;
+        let mut min_fallback_cycles = u64::MAX;
         let mut min_inst = u64::MAX;
 
         #[cfg(feature = "real_time")]
@@ -98,12 +83,24 @@ where
             }
 
             #[cfg(target_arch = "x86_64")]
-            let start_rdtsc = unsafe {
+            let start_fallback = unsafe {
                 core::arch::x86_64::_mm_lfence();
                 let c = core::arch::x86_64::_rdtsc();
                 core::arch::x86_64::_mm_lfence();
                 c
             };
+
+            #[cfg(target_arch = "aarch64")]
+            let start_fallback = {
+                let mut c: u64;
+                unsafe {
+                    core::arch::asm!("isb", "mrs {}, cntvct_el0", out(reg) c, options(nomem, nostack));
+                }
+                c
+            };
+
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            let start_fallback = 0;
 
             #[cfg(feature = "real_time")]
             let start_time = std::time::Instant::now();
@@ -120,9 +117,25 @@ where
             #[cfg(target_arch = "x86_64")]
             {
                 let mut aux = 0;
-                let end_rdtsc = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
+                let end_fallback = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
                 unsafe { core::arch::x86_64::_mm_lfence() };
-                min_rdtsc_cycles = min_rdtsc_cycles.min(end_rdtsc.wrapping_sub(start_rdtsc));
+                min_fallback_cycles =
+                    min_fallback_cycles.min(end_fallback.wrapping_sub(start_fallback));
+            }
+
+            #[cfg(target_arch = "aarch64")]
+            {
+                let mut end_fallback: u64;
+                unsafe {
+                    core::arch::asm!("isb", "mrs {}, cntvct_el0", out(reg) end_fallback, options(nomem, nostack));
+                }
+                min_fallback_cycles =
+                    min_fallback_cycles.min(end_fallback.wrapping_sub(start_fallback));
+            }
+
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            {
+                min_fallback_cycles = 0;
             }
 
             if let Some(i) = inst_counter.as_mut() {
@@ -170,8 +183,8 @@ where
 
         let final_cycles = if min_perf_cycles != u64::MAX {
             min_perf_cycles
-        } else if min_rdtsc_cycles != u64::MAX {
-            min_rdtsc_cycles
+        } else if min_fallback_cycles != u64::MAX {
+            min_fallback_cycles
         } else {
             0
         };
@@ -195,11 +208,6 @@ where
     }
 
     /// Executes the benchmark and returns the measurement results.
-    ///
-    /// <details>
-    /// <summary>Japanese</summary>
-    /// ベンチマークを実行し、計測結果を返します。
-    /// </details>
     #[cfg(not(target_os = "linux"))]
     pub fn run(&mut self) -> Measurement {
         for _ in 0..100 {
@@ -222,6 +230,18 @@ where
                 c
             };
 
+            #[cfg(target_arch = "aarch64")]
+            let start_cycles = {
+                let mut c: u64;
+                unsafe {
+                    core::arch::asm!("isb", "mrs {}, cntvct_el0", out(reg) c, options(nomem, nostack));
+                }
+                c
+            };
+
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            let start_cycles = 0;
+
             #[cfg(feature = "real_time")]
             let start_time = std::time::Instant::now();
 
@@ -234,6 +254,20 @@ where
                 let end_cycles = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
                 unsafe { core::arch::x86_64::_mm_lfence() };
                 min_cycles = min_cycles.min(end_cycles.wrapping_sub(start_cycles));
+            }
+
+            #[cfg(target_arch = "aarch64")]
+            {
+                let mut end_cycles: u64;
+                unsafe {
+                    core::arch::asm!("isb", "mrs {}, cntvct_el0", out(reg) end_cycles, options(nomem, nostack));
+                }
+                min_cycles = min_cycles.min(end_cycles.wrapping_sub(start_cycles));
+            }
+
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            {
+                min_cycles = 0;
             }
 
             #[cfg(feature = "real_time")]

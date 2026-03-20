@@ -4,8 +4,8 @@ import styles from "./ParameterDescription.module.css";
 const PARAMETERS = [
   {
     key: "CPU Cycles",
-    en: "The pure execution cost measured by hardware performance counters or RDTSC. Linux: Uses perf_event for exact cycles and instructions. x86_64: Uses RDTSC. Other architectures (e.g., Apple Silicon): Unavailable (recorded as 0).",
-    ja: "ハードウェアのパフォーマンスカウンタやRDTSCによって計測された純粋な実行コスト。Linux: perf_eventによりサイクル数と命令数を厳密に計測。x86_64: RDTSCを利用。その他のアーキテクチャ（Apple Silicon等）: 計測不可（0として記録）。",
+    en: "The pure execution cost. Linux: Uses perf_event. x86_64 (Intel Mac/Windows): Uses RDTSC. aarch64 (Apple Silicon): Uses CNTVCT_EL0.",
+    ja: "純粋な実行コスト。Linux: perf_eventで厳密計測。x86_64 (Intel Mac/Windows): RDTSCを利用。aarch64 (Apple Silicon): CNTVCT_EL0（仮想タイマーtick）を利用。",
   },
   {
     key: "Time (ns)",
@@ -98,6 +98,17 @@ export function ParameterDescription() {
             <span style={{ fontSize: "0.85em", opacity: 0.8 }}>
               ※ メモリ統計は GlobalAlloc
               をラップしたカスタムアロケーターにより、OSやアーキテクチャを問わず正確に追跡されます。
+            </span>
+            <br />
+            <span style={{ display: "block", marginBottom: "4px" }}>
+              * Instructions count is omitted from this list because it is
+              fundamentally impossible to track from user-space on macOS/Windows
+              without kernel extensions.
+            </span>
+            <span style={{ fontSize: "0.85em", opacity: 0.8 }}>
+              ※ 命令数 (Instructions) は macOS や Windows
+              のユーザー空間からは根本的に取得不可能なため、このリストからは省略されています
+              (Linux環境でのみ内部的に記録されます)。
             </span>
           </p>
         </div>
